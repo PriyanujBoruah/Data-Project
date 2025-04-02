@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+{% block title %}Clean Data{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Clean Data: {{ session.get('original_filename', 'Unknown File') }}</h2>
+    <a href="{{ url_for('download_file') }}" class="btn btn-success btn-sm">Download Current Data</a>
+</div>
+<hr>
+
+<div class="row">
+
+    <!-- ====================================== -->
+    <!-- == Left Column: Cleaning Operations == -->
+    <!-- ====================================== -->
+    <div class="col-md-4">
+        {% if columns %}
+            <h4>Cleaning Operations:</h4>
+            <div class="accordion" id="cleaningAccordion">
+
+                <!-- == 1. Clean Missing Data == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingMissing">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMissing" aria-expanded="false" aria-controls="collapseMissing">
+                            1. Clean Missing Data (NaN)
+                        </button>
+                    </h2>
+                    <div id="collapseMissing" class="accordion-collapse collapse" aria-labelledby="headingMissing" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='missing') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Column(s) (Optional, default: all):</label>
+                                    <select name="columns" class="form-select" multiple size="5">
+                                        {% for col in columns %}
+                                        <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small>Hold Ctrl/Cmd to select multiple.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Action:</label>
+                                    <select name="missing_method" class="form-select" required>
+                                        <option value="drop_row">Drop Rows with any NaN</option>
+                                        <option value="drop_col">Drop Columns with any NaN</option>
+                                        <option value="fill_mean">Fill with Mean (Numeric Only)</option>
+                                        <option value="fill_median">Fill with Median (Numeric Only)</option>
+                                        <option value="fill_mode">Fill with Mode</option>
+                                        <option value="fill_value">Fill with Specific Value</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Fill Value (if 'Fill with Specific Value' selected):</label>
+                                    <input type="text" name="fill_value" class="form-control">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 2. Clean Outlier Data == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingOutlier">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOutlier" aria-expanded="false" aria-controls="collapseOutlier">
+                            2. Clean Outlier Data (Numeric)
+                        </button>
+                    </h2>
+                    <div id="collapseOutlier" class="accordion-collapse collapse" aria-labelledby="headingOutlier" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='outlier') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Numeric Column:</label>
+                                    <select name="column" class="form-select" required>
+                                        {% for col in columns %}
+                                            <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Method:</label>
+                                    <select name="outlier_method" class="form-select" required>
+                                        <option value="iqr">IQR (Interquartile Range)</option>
+                                        <option value="zscore">Z-Score</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Threshold Multiplier/Value:</label>
+                                    <input type="number" step="any" name="threshold" class="form-control" value="1.5" required>
+                                    <small>For IQR: Multiplier (e.g., 1.5). For Z-Score: Absolute Z-value (e.g., 3).</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Action:</label>
+                                    <select name="action" class="form-select" required>
+                                        <option value="remove">Remove Rows with Outliers</option>
+                                        <option value="cap">Cap Outliers (Replace with bounds)</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 3. Smooth Data == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingSmooth">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSmooth" aria-expanded="false" aria-controls="collapseSmooth">
+                            3. Smooth Data (Numeric)
+                        </button>
+                    </h2>
+                    <div id="collapseSmooth" class="accordion-collapse collapse" aria-labelledby="headingSmooth" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='smooth') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Numeric Column:</label>
+                                    <select name="column" class="form-select" required>
+                                        {% for col in columns %}
+                                            <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Method:</label>
+                                    <select name="smooth_method" class="form-select" required>
+                                        <option value="moving_average">Moving Average</option>
+                                        <!-- Add other methods like Exponential Smoothing if needed -->
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Window Size (for Moving Average):</label>
+                                    <input type="number" name="window" class="form-control" value="3" min="2" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 4. Normalize Data == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingNormalize">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNormalize" aria-expanded="false" aria-controls="collapseNormalize">
+                            4. Normalize/Scale Data (Numeric)
+                        </button>
+                    </h2>
+                    <div id="collapseNormalize" class="accordion-collapse collapse" aria-labelledby="headingNormalize" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='normalize') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Numeric Column(s) (Optional, default: all numeric):</label>
+                                    <select name="columns" class="form-select" multiple size="5">
+                                        {% for col in columns %}
+                                        <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small>Hold Ctrl/Cmd to select multiple.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Method:</label>
+                                    <select name="normalize_method" class="form-select" required>
+                                        <option value="min_max">Min-Max Scaling (0 to 1)</option>
+                                        <option value="z_score">Z-Score Standardization (Standard Scaler)</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 5. Deduplicate Records == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingDeduplicate">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDeduplicate" aria-expanded="false" aria-controls="collapseDeduplicate">
+                            5. Deduplicate Records
+                        </button>
+                    </h2>
+                    <div id="collapseDeduplicate" class="accordion-collapse collapse" aria-labelledby="headingDeduplicate" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='deduplicate') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Check for Duplicates Based on Columns (Optional, default: all):</label>
+                                    <select name="columns" class="form-select" multiple size="5">
+                                        {% for col in columns %}
+                                        <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small>Hold Ctrl/Cmd to select multiple.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Keep:</label>
+                                    <select name="keep" class="form-select" required>
+                                        <option value="first">First Occurrence</option>
+                                        <option value="last">Last Occurrence</option>
+                                        <option value="none">Remove All Duplicates</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 6. Date Standardization == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingDate">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDate" aria-expanded="false" aria-controls="collapseDate">
+                            6. Date Standardization
+                        </button>
+                    </h2>
+                    <div id="collapseDate" class="accordion-collapse collapse" aria-labelledby="headingDate" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='date') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Date Column(s):</label>
+                                    <select name="columns" class="form-select" multiple size="5" required>
+                                        {% for col in columns %}
+                                        <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small>Hold Ctrl/Cmd to select multiple.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Output Format (Optional, default: YYYY-MM-DD HH:MM:SS):</label>
+                                    <input type="text" name="date_format" class="form-control" placeholder="%Y-%m-%d %H:%M:%S">
+                                    <small>Uses Python <a href="https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes" target="_blank">strftime format codes</a>.</small>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" id="errors_coerce" name="errors_coerce" value="true" checked>
+                                    <label class="form-check-label" for="errors_coerce">Convert unparseable dates to NaT (Not a Time)? (If unchecked, invalid dates will raise an error)</label>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 7. Case Standardization == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingCase">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCase" aria-expanded="false" aria-controls="collapseCase">
+                            7. Uppercase/Lowercase Standardization (Text)
+                        </button>
+                    </h2>
+                    <div id="collapseCase" class="accordion-collapse collapse" aria-labelledby="headingCase" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='case') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Column(s):</label>
+                                    <select name="columns" class="form-select" multiple size="5" required>
+                                        {% for col in columns %}
+                                        <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small>Hold Ctrl/Cmd to select multiple.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Standardize Case To:</label>
+                                    <select name="case_type" class="form-select" required>
+                                        <option value="lower">Lowercase</option>
+                                        <option value="upper">Uppercase</option>
+                                        <option value="title">Title Case</option>
+                                        <option value="strip">Strip Whitespace (Leading/Trailing)</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 8. Constraint Enforcement == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingConstraint">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConstraint" aria-expanded="false" aria-controls="collapseConstraint">
+                            8. Constraint Enforcement (Numeric Range)
+                        </button>
+                    </h2>
+                    <div id="collapseConstraint" class="accordion-collapse collapse" aria-labelledby="headingConstraint" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <p><small>Example: Keep rows where a numeric column is within a specified range.</small></p>
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='constraint') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Numeric Column:</label>
+                                    <select name="column" class="form-select" required>
+                                        {% for col in columns %}
+                                            <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Minimum Value (Inclusive, Optional):</label>
+                                        <input type="number" step="any" name="min_val" class="form-control">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Maximum Value (Inclusive, Optional):</label>
+                                        <input type="number" step="any" name="max_val" class="form-control">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary mt-3">Apply (Keep Rows In Range)</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- == 9. Sort Data == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingSort">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSort" aria-expanded="false" aria-controls="collapseSort">
+                            9. Sort By Variable
+                        </button>
+                    </h2>
+                    <div id="collapseSort" class="accordion-collapse collapse" aria-labelledby="headingSort" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='sort') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Column(s) to Sort By:</label>
+                                    <select name="columns" class="form-select" multiple size="5" required>
+                                        {% for col in columns %}
+                                        <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small>Order matters. Hold Ctrl/Cmd to select multiple.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Sort Order:</label>
+                                    <select name="ascending" class="form-select" required>
+                                        <option value="True">Ascending</option>
+                                        <option value="False">Descending</option>
+                                    </select>
+                                    <small>Applies the same order to all selected columns. For mixed order, apply sorting sequentially.</small>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 10. Rename Variable == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingRename">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRename" aria-expanded="false" aria-controls="collapseRename">
+                            10. Rename Variable (Column)
+                        </button>
+                    </h2>
+                    <div id="collapseRename" class="accordion-collapse collapse" aria-labelledby="headingRename" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='rename') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Column to Rename:</label>
+                                    <select name="old_name" class="form-select" required>
+                                        {% for col in columns %}
+                                        <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">New Column Name:</label>
+                                    <input type="text" name="new_name" class="form-control" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 11. Remove Variable == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingRemove">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRemove" aria-expanded="false" aria-controls="collapseRemove">
+                            11. Remove Variable (Column)
+                        </button>
+                    </h2>
+                    <div id="collapseRemove" class="accordion-collapse collapse" aria-labelledby="headingRemove" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='remove') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Column(s) to Remove:</label>
+                                    <select name="columns" class="form-select" multiple size="5" required>
+                                        {% for col in columns %}
+                                        <option value="{{ col }}">{{ col }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <small>Hold Ctrl/Cmd to select multiple.</small>
+                                </div>
+                                <button type="submit" class="btn btn-danger">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == 12. Character Encoding Correction == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingEncoding">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEncoding" aria-expanded="false" aria-controls="collapseEncoding">
+                            12. Character Encoding Correction
+                        </button>
+                    </h2>
+                    <div id="collapseEncoding" class="accordion-collapse collapse" aria-labelledby="headingEncoding" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <p>Character encoding is typically corrected when the file is <strong>first uploaded</strong>.</p>
+                            <p>If you see mojibake (garbled text like <code>Ã©</code> instead of <code>é</code>), you likely need to re-upload the file and specify the correct encoding (e.g., 'latin-1', 'cp1252') in the encoding field on the upload page.</p>
+                            <p>The current file was likely read using encoding: <strong>{{ session.get('encoding', 'Auto-Detected') }}</strong></p>
+                            <a href="{{ url_for('index') }}" class="btn btn-warning">Re-Upload with Different Encoding</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- == Unit Standardization (Info Only) == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingUnit">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUnit" aria-expanded="false" aria-controls="collapseUnit">
+                            Unit Standardization (Manual Note)
+                        </button>
+                    </h2>
+                    <div id="collapseUnit" class="accordion-collapse collapse" aria-labelledby="headingUnit" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <p>Unit standardization (e.g., converting 'kg' to 'grams', 'miles' to 'km') is highly context-dependent and often requires complex logic or manual intervention.</p>
+                            <p>This tool does not provide automated unit standardization. You may need to:</p>
+                            <ul>
+                                <li>Use the 'Rename Variable' function if units are part of the column name.</li>
+                                <li>Manually edit the data or use more specialized scripts after downloading.</li>
+                                <li>Potentially use 'Case Standardization' or other tools if units are inconsistent strings within a column (e.g., 'kg', 'Kg', 'kilogram').</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div> <!-- End Accordion -->
+        {% endif %} {# End if columns #}
+
+        {% if not columns %}
+             <p class="text-danger">No data loaded or columns found. Please <a href="{{ url_for('index') }}">upload a CSV file</a> first.</p>
+        {% endif %} {# End if not columns #}
+    </div> <!-- End Left Column (col-md-4) -->
+
+    <!-- ================================= -->
+    <!-- == Right Column: Data Preview == -->
+    <!-- ================================= -->
+    <div class="col-md-8">
+        {% if df_preview %}
+            {# Use the preview_text variable passed from Flask #}
+            <h4>{{ preview_text|default('Data Preview:', true) }}</h4>
+            <div class="table-preview-container">
+                 <div class="table-responsive"> <!-- Keep table-responsive for horizontal scrolling -->
+                    {{ df_preview|safe }}
+                 </div>
+            </div>
+        {% else %}
+             <!-- Only show this message if columns *did* exist but preview failed -->
+             {% if columns %}
+                <p class="text-warning">Could not generate data preview.</p>
+             {% endif %}
+        {% endif %} {# End if df_preview #}
+    </div> <!-- End Right Column (col-md-8) -->
+
+</div> <!-- End Row -->
+
+{% endblock %}
