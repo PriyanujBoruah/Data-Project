@@ -1,7 +1,31 @@
-Flask>=2.0
-pandas>=1.3
-numpy>=1.20
-scikit-learn>=0.24 # For normalization
-scipy>=1.7       # For outlier detection (Z-score)
-chardet>=4.0     # To detect encoding (optional but helpful)
-werkzeug>=2.0    # Ensure compatible version
+# Core web framework
+streamlit
+
+# Data manipulation and analysis
+pandas
+numpy
+
+# Machine learning preprocessing (Scaling)
+scikit-learn
+
+# Scientific computing (stats)
+scipy
+
+# Character encoding detection
+chardet
+
+# Fuzzy string matching
+thefuzz
+# Optional but recommended for thefuzz performance
+python-Levenshtein
+
+# Required by pandas to read/write Excel (.xlsx) files
+openpyxl
+
+# --- Built-in modules (no need to list) ---
+# os
+# uuid
+# collections
+# time
+# io
+# re
