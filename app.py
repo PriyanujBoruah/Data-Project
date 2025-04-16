@@ -30,7 +30,7 @@ load_dotenv() # Load environment variables from .env file if it exists
 UPLOAD_FOLDER = 'uploads' # Keep for potential future hybrid use
 CLEANED_FOLDER = 'cleaned_data' # Base name, not used for primary storage anymore
 # ALLOWED_EXTENSIONS = {'csv', 'xlsx'} # Keep if hybrid needed
-MAX_FILE_SIZE = 32 * 1024 * 1024  # 32 MB limit
+MAX_FILE_SIZE = 2 * 1024 * 1024  # 2 MB limit
 
 app = Flask(__name__)
 # Increase session cookie size if needed (object paths can be long)
