@@ -1,0 +1,265 @@
+/* Add space for fixed navbar */
+body {
+    padding-top: 5rem;
+    background-color: #f8f9fa; /* Light background */
+}
+
+.navbar {
+    min-height: 56px;
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075);
+}
+
+/* Improve table appearance */
+.table {
+    font-size: 0.85rem; /* Smaller font in table */
+    width: 100%;
+    margin-bottom: 0;
+    background-color: #fff; /* White background for table */
+}
+
+.table th, .table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px; /* Adjust max cell width */
+    padding: 0.4rem 0.5rem; /* Adjust padding */
+    vertical-align: middle;
+}
+.table thead th {
+    background-color: #e9ecef; /* Light grey header */
+    border-bottom-width: 1px;
+    position: sticky; /* Make header sticky */
+    top: 0; /* Stick to top */
+    z-index: 10; /* Ensure header is above table body */
+}
+
+/* Accordion styling (General Cleaning Accordion) */
+.accordion-item {
+    margin-bottom: 8px;
+    border-radius: .3rem;
+    border: 1px solid rgba(0,0,0,.125);
+    background-color: #fff; /* Ensure white background */
+}
+.accordion-button {
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 0.8rem 1rem;
+}
+.accordion-button:not(.collapsed) {
+    color: #052c65; /* Darker blue when open */
+    background-color: #cfe2ff; /* Lighter blue background when open */
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.125);
+}
+.accordion-button:focus {
+    box-shadow: 0 0 0 .25rem rgba(13,110,253,.25); /* Standard bootstrap focus */
+    border-color: rgba(13,110,253,.25);
+}
+.accordion-body {
+    font-size: 0.9rem;
+    padding: 1rem;
+}
+.accordion-body .form-label,
+.accordion-body .form-select,
+.accordion-body .form-control,
+.accordion-body .form-check-label {
+     font-size: 0.85rem;
+}
+.accordion-body small.form-text {
+    font-size: 0.78rem;
+}
+
+
+/* Make select multiple easier to see */
+select[multiple] {
+    min-height: 120px;
+}
+
+/* Style for the right column's table container */
+.table-preview-container {
+    max-height: 80vh; /* Limit height */
+    overflow: auto; /* Add both scrollbars if needed */
+    border: 1px solid #dee2e6;
+    border-radius: .25rem;
+    background-color: #fff; /* Ensure background for container */
+    box-shadow: 0 .125rem .25rem rgba(0,0,0,.075);
+}
+
+/* == NEW: Style for the Left Column Controls Container == */
+#cleaning-controls-column {
+    max-height: 80vh; /* Match preview height or adjust (e.g., 78vh) */
+    overflow-y: auto; /* Enable vertical scrollbar ONLY when needed */
+    overflow-x: hidden; /* Prevent horizontal scrollbars on the column itself */
+    padding-right: 5px; /* Add a little space for the scrollbar */
+     /* Ensure the background doesn't clash if elements inside are transparent */
+    background-color: transparent; /* Or match body background: #f8f9fa; */
+}
+
+/* Ensure the accordion itself doesn't cause unwanted overflow issues */
+#cleaningAccordion {
+    width: 100%; /* Make sure accordion fills the container width */
+}
+
+/* Ensure table-responsive within the container works well */
+/*.table-preview-container .table-responsive {*/
+    /* No specific styles needed here usually unless overriding something */
+/*}*/
+
+/* Adjust button sizes within accordion */
+.accordion-body .btn {
+    font-size: 0.9rem;
+    padding: 0.375rem 0.75rem;
+}
+
+/* Styles for Exploration Results */
+.alert .list-group-item {
+    border: none;
+    padding-left: 0;
+    padding-right: 0;
+}
+.alert .list-group-item strong {
+    margin-right: 5px;
+}
+.alert ul.explore-details {
+    font-size: 0.9em;
+    margin-top: 5px;
+    padding-left: 20px; /* Indent details list */
+    margin-bottom: 0;
+    list-style-type: disc;
+}
+.alert ul.explore-details li {
+    margin-bottom: 2px;
+}
+.alert p small em {
+    color: #6c757d; /* Muted color for suggestions */
+}
+
+/* == NEW: Styles for Data Profile Section == */
+.profile-section {
+    border: 1px solid #d6d8db; /* Slightly darker border */
+}
+.profile-section .alert-heading {
+    display: flex;
+    align-items: center;
+    font-size: 1.2rem; /* Match h4 size */
+    color: #495057;
+}
+
+/* Profile Accordion Styling */
+.profile-section .accordion-button {
+    font-size: 0.9rem;
+    padding: 0.6rem 1rem;
+    background-color: #f8f9fa; /* Lighter background for profile accordion headers */
+    font-weight: normal; /* Normal weight for profile column names */
+}
+.profile-section .accordion-button strong {
+    font-weight: 500; /* Make column name bold */
+}
+.profile-section .accordion-button:not(.collapsed) {
+    background-color: #e9ecef; /* Slightly darker when open */
+    color: #000;
+}
+.profile-section .accordion-button small {
+    font-weight: normal; /* Keep text-muted small text normal weight */
+}
+
+.profile-section .accordion-body {
+    font-size: 0.85rem;
+    background-color: #fff; /* White background for stats */
+    padding: 0.8rem 1rem;
+}
+.profile-section .profile-stats h6 {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    color: #6c757d;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.25rem;
+}
+.profile-section .profile-stats ul {
+    margin-bottom: 0.5rem; /* Space below lists */
+    padding-left: 0;
+}
+.profile-section .profile-stats li {
+    margin-bottom: 0.2rem;
+    line-height: 1.4;
+}
+.profile-section .profile-stats li strong {
+    display: inline-block;
+    min-width: 100px; /* Align stat names */
+    color: #495057;
+    font-weight: 500;
+}
+
+/* Profile Accordion Flush Look */
+.profile-section .accordion-flush .accordion-item {
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0; /* Remove top border */
+    background-color: transparent; /* Transparent item background */
+}
+.profile-section .accordion-flush .accordion-item:last-child {
+    border-bottom: 0;
+}
+.profile-section .accordion-flush .accordion-button {
+    border-radius: 0 !important; /* Override Bootstrap rounding */
+    border-bottom: 1px solid rgba(0,0,0,.125); /* Add line between headers */
+}
+.profile-section .accordion-flush .accordion-item:last-child .accordion-button.collapsed {
+     border-bottom: 0; /* No line for last item when collapsed */
+}
+.profile-section .accordion-flush .accordion-button:not(.collapsed) {
+     border-bottom: 1px solid rgba(0,0,0,.125); /* Keep line when open */
+}
+
+/* == NEW: Styles for Fuzzy Matching Section == */
+#collapseFuzzyMatch .accordion-body hr {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+.fuzzy-group {
+    background-color: #f8f9fa; /* Light background for each group */
+    font-size: 0.85rem;
+}
+.fuzzy-group p strong {
+    font-size: 0.9rem;
+    color: #343a40;
+}
+.fuzzy-group .list-inline-item .badge {
+    font-size: 0.8rem;
+    font-weight: normal;
+    margin-bottom: 5px; /* Spacing for badges */
+}
+.fuzzy-group .form-label-sm {
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+    font-weight: 500;
+}
+.fuzzy-group .form-select-sm {
+    font-size: 0.8rem;
+}
+
+/* Text break for filenames etc. */
+.text-break {
+    word-break: break-all;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) {
+    body { padding-top: 4rem; } /* Reduce padding slightly */
+
+    /* == MODIFIED: Adjust left column height and add spacing when stacked == */
+    #cleaning-controls-column {
+        max-height: 60vh; /* Reduce height significantly when stacked */
+        margin-bottom: 1rem; /* Add space below controls when stacked */
+        padding-right: 2px; /* Less padding needed */
+    }
+
+    /* == Existing rule for table preview == */
+    .table-preview-container {
+        max-height: 60vh; /* Reduce height on smaller screens */
+        margin-top: 1rem; /* Add space between controls and table when stacked */
+    }
+
+    h2.h4 { font-size: 1.2rem; } /* Adjust heading size */
+    .profile-section .profile-stats .col-lg-4 { margin-bottom: 0.5rem; } /* Add space between stat columns on smaller screens */
+}
