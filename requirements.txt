@@ -4,7 +4,7 @@ Flask==2.2.5 # Specify a reasonable minimum Flask version
 pandas==2.2.3 # Specify minimum pandas version
 numpy==1.26.4
 scikit-learn==1.3.0
-scipy>=1.7
+scipy==1.11.2
 # chardet # Only needed if you re-enable file upload encoding detection
 thefuzz[speedup]==0.22.1 # [speedup] installs python-Levenshtein for performance
 plotly==5.17.0
