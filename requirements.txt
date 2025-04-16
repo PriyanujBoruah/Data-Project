@@ -1,15 +1,15 @@
 # requirements.txt
 
-Flask>=2.0 # Specify a reasonable minimum Flask version
-pandas>=1.3 # Specify minimum pandas version
-numpy>=1.20
-scikit-learn>=1.0
+Flask==2.2.5 # Specify a reasonable minimum Flask version
+pandas==2.2.3 # Specify minimum pandas version
+numpy==1.26.4
+scikit-learn==1.3.0
 scipy>=1.7
 # chardet # Only needed if you re-enable file upload encoding detection
-thefuzz[speedup]>=0.19 # [speedup] installs python-Levenshtein for performance
-plotly>=5.0
-openpyxl>=3.0 # For Excel reading/writing
-gunicorn>=20.0 # WSGI server for production
-supabase-py>=2.0 # Use >=2.0 as we adapted for its API
-python-dotenv>=0.19 # For loading .env locally (Render ignores it)
-requests>=2.25 # Often a dependency, good to specify
+thefuzz[speedup]==0.22.1 # [speedup] installs python-Levenshtein for performance
+plotly==5.17.0
+openpyxl==3.1.5 # For Excel reading/writing
+gunicorn==23.0.0 # WSGI server for production
+supabase-py==2.15.0 # Use >=2.0 as we adapted for its API
+python-dotenv==0.19.2 # For loading .env locally (Render ignores it)
+requests==2.32.3 # Often a dependency, good to specify
