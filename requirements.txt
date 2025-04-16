@@ -10,6 +10,6 @@ thefuzz[speedup]==0.22.1 # [speedup] installs python-Levenshtein for performance
 plotly==5.17.0
 openpyxl==3.1.5 # For Excel reading/writing
 gunicorn==23.0.0 # WSGI server for production
-supabase-py==2.15.0 # Use >=2.0 as we adapted for its API
+supabase==2.15.0 # Use >=2.0 as we adapted for its API
 python-dotenv==0.19.2 # For loading .env locally (Render ignores it)
 requests==2.32.3 # Often a dependency, good to specify
