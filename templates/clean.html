@@ -1,0 +1,593 @@
+{% extends "base.html" %}
+{% block title %}Clean Data{% endblock %}
+
+{% block content %}
+{# --- Top Action Bar --- #}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom">
+    <h2 class="h4 text-break me-3">Clean: {{ session.get('original_filename', 'Unknown File') }}</h2> {# Added margin #}
+    <div class="btn-toolbar mb-2 mb-md-0 d-flex flex-wrap justify-content-center justify-content-md-end"> {# Adjusted alignment #}
+
+        {# --- Auto Explore Button --- #}
+        <form method="post" action="{{ url_for('explore_data') }}" class="me-2 mb-1">
+            <button type="submit" class="btn btn-info btn-sm" title="Run automated analysis to find potential issues">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-magic" viewBox="0 0 16 16"><path d="M9.5 2.672a.5.5 0 1 0 1 0V.843a.5.5 0 0 0-1 0v1.829Zm4.5.035A.5.5 0 0 0 13.293 2L12 3.293a.5.5 0 1 0 .707.707L14 2.707ZM7.293 4A.5.5 0 1 0 8 3.293L6.707 2A.5.5 0 0 0 6 2.707L7.293 4Zm-.621 7.5a.5.5 0 1 0 0-1H4.843a.5.5 0 1 0 0 1h1.829Zm8.485-.035a.5.5 0 0 0-.707-.707L14 11.293l-1.293-1.293a.5.5 0 0 0-.707.707L13.293 12l1.293 1.293a.5.5 0 0 0 .707-.707L14.707 12l1.086-1.086ZM10.5 13.328a.5.5 0 1 0-1 0v1.829a.5.5 0 1 0 1 0V13.328ZM4.707 14a.5.5 0 0 0-.707-.707L2.707 12l1.293-1.293a.5.5 0 1 0-.707-.707L2 11.293l-1.293 1.293a.5.5 0 0 0 .707.707L2.707 14l-1.293 1.293a.5.5 0 0 0 .707.707L4 14.707l1.293 1.293a.5.5 0 0 0 .707-.707L4.707 14Zm1.121-7.5a.5.5 0 1 0 0-1H4.843a.5.5 0 1 0 0 1h1.829Z"></path><path d="M11.496 8.5c.07-.358.122-.725.122-1.104 0-.379-.052-.746-.122-1.104C11.325 5.528 10.87 5 10.277 5h-.555C9.136 5 8.678 5.528 8.504 6.292c-.07.358-.122.725-.122 1.104 0 .379.052.746.122 1.104.174.764.632 1.292 1.22 1.292h.555c.593 0 1.048-.528 1.22-1.292ZM10.277 6a.792.792 0 0 1 .787.792v1.416a.792.792 0 0 1-.787.792h-.555a.792.792 0 0 1-.787-.792V6.792A.792.792 0 0 1 9.722 6h.555Z"></path></svg>
+                Auto Explore
+            </button>
+        </form>
+
+        {# --- Generate Profile Button --- #}
+        <form method="post" action="{{ url_for('profile_data') }}" class="me-2 mb-1">
+            <button type="submit" class="btn btn-secondary btn-sm" title="Generate detailed column statistics">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bar-chart-line-fill" viewBox="0 0 16 16"><path d="M11 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h1V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7h1V2z"/></svg>
+                Data Profile
+            </button>
+        </form>
+
+        {# --- Safe Auto Clean Button --- #}
+        <form method="post" action="{{ url_for('safe_auto_clean') }}" class="me-2 mb-1" onsubmit="return confirm('Safe Auto-Clean applies conservative fixes (impute missing, cap outliers, fix text/dates, deduplicate) based on Auto Explore findings. It will NOT remove rows (except duplicates) or columns. Proceed?');">
+            <button type="submit" class="btn btn-success btn-sm" title="Apply SAFE default cleaning steps (no row/column removal except duplicates)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-shield-check" viewBox="0 0 16 16"><path d="M5.338 1.59a61.44 61.44 0 0 0-2.837.856.481.481 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.725 10.725 0 0 0 2.287 2.233c.346.244.652.42.893.533.12.057.218.095.293.118a.55.55 0 0 0 .101.025.615.615 0 0 0 .1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.945-.335-1.897-.648-2.837-.856C11.997 1.084 10.34 1 8 1s-3.997.084-5.662.59zM10.854 6.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 8.793l2.646-2.647a.5.5 0 0 1 .708 0z"/></svg>
+                Safe Auto-Clean
+            </button>
+        </form>
+
+        {# --- Hard Auto Clean Button --- #}
+        <form method="post" action="{{ url_for('hard_auto_clean') }}" class="me-2 mb-1" onsubmit="return confirm('WARNING: Hard Auto-Clean applies AGGRESSIVE fixes, including REMOVING rows (outliers, missing values) and columns (low variance, high missing %). This can lead to significant data loss. Use only if you understand the consequences. Proceed?');">
+            <button type="submit" class="btn btn-danger btn-sm" title="Apply AGGRESSIVE cleaning steps (CAN remove rows/columns). USE WITH EXTREME CAUTION!">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>
+                Hard Auto-Clean
+            </button>
+        </form>
+
+        {# --- NEW Hard Auto Row Clean Button --- #}
+        <form method="post" action="{{ url_for('hard_auto_row_clean') }}" class="me-2 mb-1" onsubmit="return confirm('Hard ROW Auto-Clean applies aggressive ROW removal for duplicates, outliers, and missing values. It does NOT remove columns, but formats text/dates. Proceed with row removal?');">
+            <button type="submit" class="btn btn-warning btn-sm" title="Apply AGGRESSIVE ROW removal (duplicates, outliers, missing values). Does NOT remove columns.">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eraser-fill" viewBox="0 0 16 16"><path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm.66 11.34L3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"/></svg>
+                Hard Row-Clean
+            </button>
+        </form>
+        {# --- End NEW Button --- #}
+
+        {# --- NEW Hard Auto Column Clean Button --- #}
+        <form method="post" action="{{ url_for('hard_auto_column_clean') }}" class="me-2 mb-1" onsubmit="return confirm('Hard COLUMN Auto-Clean removes duplicate rows, formats text/dates, then REMOVES columns based on low variance or high missing %. It does NOT remove rows for outliers/missingness. Proceed with column removal?');">
+            <button type="submit" class="btn btn-warning btn-sm" title="Apply AGGRESSIVE COLUMN removal (low variance, high missing %). Does NOT remove rows for outliers/missing values.">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3-fill" viewBox="0 0 16 16"><path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1H5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5zm-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5zM4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06zm6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528zM8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5z"/></svg>
+                Hard Col-Clean
+            </button>
+        </form>
+        {# --- End NEW Button --- #}
+
+        {# --- Visualize Button --- #}
+        <a href="{{ url_for('visualize_data') }}" class="btn btn-secondary btn-sm me-2 mb-1" title="Visualize current data">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bar-chart-steps" viewBox="0 0 16 16"><path d="M.5 0a.5.5 0 0 1 .5.5v15a.5.5 0 0 1-1 0V.5A.5.5 0 0 1 .5 0zM2 1.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-1zm2 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-1zm2 4a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-6a.5.5 0 0 1-.5-.5v-1zm2 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-1z"/></svg>
+            Visualize
+        </a>
+
+        {# --- Download Button Dropdown --- #}
+        <div class="btn-group mb-1">
+            <button type="button" class="btn btn-dark btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"></path><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"></path></svg>
+                Download As
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ url_for('download_file', format='csv') }}">CSV (.csv)</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('download_file', format='xlsx') }}">Excel (.xlsx)</a></li>
+            </ul>
+        </div>
+
+    </div> {# End btn-toolbar #}
+</div> {# End Top Action Bar #}
+
+{# --- Exploration Results Section (If exists) --- #}
+{% if exploration_results is defined and exploration_results is not none %}
+<div class="alert alert-secondary alert-dismissible fade show" role="alert">
+    <h4 class="alert-heading">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-magic me-1" viewBox="0 0 16 16"><path d="M9.5 2.672a.5.5 0 1 0 1 0V.843a.5.5 0 0 0-1 0v1.829Zm4.5.035A.5.5 0 0 0 13.293 2L12 3.293a.5.5 0 1 0 .707.707L14 2.707ZM7.293 4A.5.5 0 1 0 8 3.293L6.707 2A.5.5 0 0 0 6 2.707L7.293 4Zm-.621 7.5a.5.5 0 1 0 0-1H4.843a.5.5 0 1 0 0 1h1.829Zm8.485-.035a.5.5 0 0 0-.707-.707L14 11.293l-1.293-1.293a.5.5 0 0 0-.707.707L13.293 12l1.293 1.293a.5.5 0 0 0 .707-.707L14.707 12l1.086-1.086ZM10.5 13.328a.5.5 0 1 0-1 0v1.829a.5.5 0 1 0 1 0V13.328ZM4.707 14a.5.5 0 0 0-.707-.707L2.707 12l1.293-1.293a.5.5 0 1 0-.707-.707L2 11.293l-1.293 1.293a.5.5 0 0 0 .707.707L2.707 14l-1.293 1.293a.5.5 0 0 0 .707.707L4 14.707l1.293 1.293a.5.5 0 0 0 .707-.707L4.707 14Zm1.121-7.5a.5.5 0 1 0 0-1H4.843a.5.5 0 1 0 0 1h1.829Z"></path><path d="M11.496 8.5c.07-.358.122-.725.122-1.104 0-.379-.052-.746-.122-1.104C11.325 5.528 10.87 5 10.277 5h-.555C9.136 5 8.678 5.528 8.504 6.292c-.07.358-.122.725-.122 1.104 0 .379.052.746.122 1.104.174.764.632 1.292 1.22 1.292h.555c.593 0 1.048-.528 1.22-1.292ZM10.277 6a.792.792 0 0 1 .787.792v1.416a.792.792 0 0 1-.787.792h-.555a.792.792 0 0 1-.787-.792V6.792A.792.792 0 0 1 9.722 6h.555Z"></path></svg>
+        Auto Explore Results
+    </h4>
+    <p>Review potential issues below. Use manual cleaning tools or the Auto-Clean buttons (Safe: conservative fixes, Hard: aggressive fixes, use with caution).</p>
+    <hr>
+    {% if exploration_results %}
+    <ul class="list-group list-group-flush">
+        {% for finding in exploration_results %}
+            <li class="list-group-item bg-transparent">
+                {% set severity_class = 'info text-dark' %}
+                {% if finding.severity == 'High' %} {% set severity_class = 'danger' %}
+                {% elif finding.severity == 'Medium' %} {% set severity_class = 'warning text-dark' %}
+                {% elif finding.severity == 'Low' %} {% set severity_class = 'secondary' %}
+                {% endif %}
+                <span class="badge bg-{{ severity_class }} me-2">{{ finding.severity }}</span>
+                <strong>{{ finding.issue_type }}:</strong> {{ finding.message }}
+                {% if finding.details %}
+                    <ul class="explore-details small text-muted ps-4"> {# Added styling #}
+                        {% for detail in finding.details %}
+                            <li>{{ detail }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                <p class="mb-0 mt-1"><small><em>Suggestion:</em> {{ finding.suggestion }}</small></p>
+            </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+        <p class="mb-0">No specific issues automatically detected. Manual review is still recommended.</p>
+    {% endif %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+{# --- Profile Results Section (If exists) --- #}
+{% if profile_results is defined and profile_results is not none %}
+<div class="alert alert-light alert-dismissible fade show profile-section" role="alert">
+    <h4 class="alert-heading">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-bar-chart-line-fill me-1" viewBox="0 0 16 16"><path d="M11 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h1V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7h1V2z"/></svg>
+        Data Profile Results
+    </h4>
+    <p>Detailed statistics for each column.</p>
+    <hr>
+    {% if profile_results and not profile_results.get('error') %}
+        <div class="accordion accordion-flush" id="profileAccordion">
+            {% for col_name, stats in profile_results.items() %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="profileHeading_{{ loop.index }}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#profileCollapse_{{ loop.index }}" aria-expanded="false" aria-controls="profileCollapse_{{ loop.index }}">
+                        <strong>{{ col_name }}</strong>
+                        <small class="ms-3 text-muted">({{ stats.type | default('N/A') }} / {{ stats.dtype | default('N/A') }})</small>
+                        <span class="ms-auto me-3"><small>Missing: {{ stats.missing_percent | default(0) }}%</small></span>
+                    </button>
+                </h2>
+                <div id="profileCollapse_{{ loop.index }}" class="accordion-collapse collapse" aria-labelledby="profileHeading_{{ loop.index }}" data-bs-parent="#profileAccordion">
+                    <div class="accordion-body">
+                        <div class="row profile-stats">
+                            <div class="col-md-6 col-lg-4">
+                                <h6>General</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Count:</strong> {{ stats.count | default('N/A') }}</li>
+                                    <li><strong>Missing:</strong> {{ stats.missing_count | default('N/A') }} ({{ stats.missing_percent | default(0) }}%)</li>
+                                    <li><strong>Unique:</strong> {{ stats.unique_count | default('N/A') }} ({{ stats.unique_percent | default(0) }}%)</li>
+                                    {% if stats.type == 'Boolean' %}
+                                        <li><strong>True:</strong> {{ stats.true_count | default('N/A') }}</li>
+                                        <li><strong>False:</strong> {{ stats.false_count | default('N/A') }}</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                            <div class="col-md-6 col-lg-4">
+                                {% if stats.type == 'Numeric' %}
+                                    <h6>Numeric Stats</h6>
+                                    <ul class="list-unstyled">
+                                        <li><strong>Mean:</strong> {{ stats.mean | default('N/A') }}</li>
+                                        <li><strong>Std Dev:</strong> {{ stats.std | default('N/A') }}</li>
+                                        <li><strong>Min:</strong> {{ stats.min | default('N/A') }}</li>
+                                        <li><strong>25% (Q1):</strong> {{ stats['25%'] | default('N/A') }}</li>
+                                        <li><strong>50% (Median):</strong> {{ stats['50%'] | default('N/A') }}</li>
+                                        <li><strong>75% (Q3):</strong> {{ stats['75%'] | default('N/A') }}</li>
+                                        <li><strong>Max:</strong> {{ stats.max | default('N/A') }}</li>
+                                    </ul>
+                                {% elif stats.type == 'Datetime' %}
+                                    <h6>Date Range</h6>
+                                    <ul class="list-unstyled">
+                                        <li><strong>Min Date:</strong> {{ stats.min_date | default('N/A') }}</li>
+                                        <li><strong>Max Date:</strong> {{ stats.max_date | default('N/A') }}</li>
+                                    </ul>
+                                {% elif stats.type == 'Text/Object' %}
+                                    <h6>Text Length</h6>
+                                    <ul class="list-unstyled">
+                                        <li><strong>Min Length:</strong> {{ stats.min_length | default('N/A') }}</li>
+                                        <li><strong>Mean Length:</strong> {{ stats.mean_length | default('N/A') }}</li>
+                                        <li><strong>Max Length:</strong> {{ stats.max_length | default('N/A') }}</li>
+                                    </ul>
+                                {% endif %}
+                            </div>
+                             <div class="col-lg-4">
+                                {% if stats.type == 'Numeric' %}
+                                    <h6>Distribution</h6>
+                                    <ul class="list-unstyled">
+                                        <li><strong>Skewness:</strong> {{ stats.skewness | default('N/A') }}</li>
+                                        <li><strong>Kurtosis:</strong> {{ stats.kurtosis | default('N/A') }}</li>
+                                    </ul>
+                                {% elif stats.type == 'Text/Object' %}
+                                    <h6>Frequent Values</h6>
+                                    {% if stats.top_values and 'Error' not in stats.top_values %}
+                                        <ul class="list-unstyled">
+                                        {% for value, count in stats.top_values.items() %}
+                                            <li>"{{ value|truncate(30, True) }}" : {{ count }}</li>
+                                        {% endfor %}
+                                        </ul>
+                                    {% elif 'Error' in stats.top_values %}
+                                         <small class="text-danger">{{ stats.top_values.Error }}</small>
+                                    {% else %} <small>N/A</small> {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% elif profile_results.get('error') %}
+        <p class="text-danger">{{ profile_results.error }}</p>
+    {% else %}
+         <p>No profile data generated.</p>
+    {% endif %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+
+{# --- Fuzzy Match Results Section (If exists) --- #}
+{% if fuzzy_results is defined and fuzzy_results and fuzzy_results.groups %}
+<div class="alert alert-info alert-dismissible fade show fuzzy-results-section" role="alert"> {# Changed alert color #}
+    <h4 class="alert-heading">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square me-1" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg>
+        Fuzzy Match Results & Standardization
+    </h4>
+     <p>Found {{ fuzzy_results.groups | length }} groups of similar values in column <strong>'{{ fuzzy_results.column }}'</strong> (threshold: {{ fuzzy_results.threshold }}%).</p>
+    <p><small>For each group, select the standard value you want to keep. All other values in that group will be replaced.</small></p>
+    <hr>
+    <form method="post" action="{{ url_for('apply_cleaning', operation='fuzzy_apply') }}" id="fuzzy-apply-form">
+        {% for group in fuzzy_results.groups %}
+        <div class="fuzzy-group border rounded p-2 mb-3 bg-light"> {# Added bg-light #}
+            <p><strong>Group {{ loop.index }}:</strong></p>
+            <ul class="list-inline small mb-2"> {# Made list smaller #}
+                {% for value in group %}
+                    <li class="list-inline-item mb-1"><span class="badge bg-secondary fw-normal">{{ value }}</span></li> {# Adjusted badge #}
+                {% endfor %}
+            </ul>
+            <div class="mb-1">
+                <label for="canonical_value_{{ loop.index0 }}" class="form-label form-label-sm">Standard Value:</label>
+                <select name="canonical_value_{{ loop.index0 }}" id="canonical_value_{{ loop.index0 }}" class="form-select form-select-sm" required>
+                    {% for value in group %}
+                        <option value="{{ value }}">{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary w-100 mt-2">Apply Selected Fuzzy Changes</button>
+    </form>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% elif fuzzy_results is defined and fuzzy_results and not fuzzy_results.groups %}
+ <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle-fill me-1" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg>
+    Fuzzy Match: No similar groups found in '{{ fuzzy_results.column }}' above {{ fuzzy_results.threshold }}% similarity.
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+ </div>
+{% endif %}
+{# --- End Fuzzy Match Results Section --- #}
+
+
+{# --- Main Content Row --- #}
+<div class="row">
+
+    <!-- ====================================== -->
+    <!-- == Left Column: Cleaning Operations == -->
+    <!-- ====================================== -->
+    <div class="col-lg-4 col-md-5 mb-4" id="cleaning-controls-column">
+        {% if columns %}
+            <h4 class="mb-3">Manual Cleaning Operations:</h4>
+            <div class="accordion" id="cleaningAccordion">
+
+                <!-- == 1. Clean Missing Data == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingMissing">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMissing" aria-expanded="false" aria-controls="collapseMissing">
+                            1. Clean Missing Data (NaN)
+                        </button>
+                    </h2>
+                    <div id="collapseMissing" class="accordion-collapse collapse" aria-labelledby="headingMissing" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='missing') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Column(s):</label>
+                                    <select name="columns" class="form-select" multiple size="5">
+                                        {% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}
+                                    </select>
+                                    <small class="form-text text-muted">Optional (default: all). Hold Ctrl/Cmd to select multiple.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Action:</label>
+                                    <select name="missing_method" class="form-select" required>
+                                        <option value="drop_row">Drop Rows with any NaN in selected/all columns</option>
+                                        <option value="drop_col">Drop Columns if they contain any NaN</option>
+                                        <option value="fill_mean">Fill with Mean (Numeric Only)</option>
+                                        <option value="fill_median">Fill with Median (Numeric Only)</option>
+                                        <option value="fill_mode">Fill with Mode</option>
+                                        <option value="fill_value">Fill with Specific Value</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Fill Value (if 'Specific Value'):</label>
+                                    <input type="text" name="fill_value" class="form-control">
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Apply</button>
+                            </form>
+                        </div>
+                    </div>
+                </div> {# End Accordion Item 1 #}
+
+                <!-- == 2. Clean Outlier Data == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingOutlier">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOutlier" aria-expanded="false" aria-controls="collapseOutlier">
+                            2. Clean Outlier Data (Numeric)
+                        </button>
+                    </h2>
+                    <div id="collapseOutlier" class="accordion-collapse collapse" aria-labelledby="headingOutlier" data-bs-parent="#cleaningAccordion">
+                        <div class="accordion-body">
+                            <form method="post" action="{{ url_for('apply_cleaning', operation='outlier') }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Select Numeric Column:</label>
+                                    <select name="column" class="form-select" required>
+                                        <option value="" disabled selected>-- Select Column --</option>
+                                        {% for col in columns %}
+                                            {% set is_numeric = false %}
+                                            {% if profile_results and col in profile_results and profile_results[col]['type'] == 'Numeric' %} {% set is_numeric = true %}
+                                            {% elif not profile_results %} {% set is_numeric = true %} {% endif %}
+                                            {% if is_numeric %} <option value="{{ col }}">{{ col }}</option> {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                     <small class="form-text text-muted">Only numeric columns shown if Data Profile was run.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="outlier_method" class="form-label">Method:</label>
+                                    <select id="outlier_method" name="outlier_method" class="form-select" required>
+                                        <option value="iqr" selected>IQR (Interquartile Range)</option>
+                                        <option value="zscore">Z-Score</option>
+                                        <option value="percentile">Percentile</option>
+                                        <option value="modified_zscore">Modified Z-Score (Robust)</option>
+                                        <option value="isolation_forest">Isolation Forest (ML)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="outlier_threshold" class="form-label" id="outlier_threshold_label">Threshold / Param:</label>
+                                    <input type="text" id="outlier_threshold" name="threshold" class="form-control" value="1.5" placeholder="e.g., 1.5 (IQR), 3 (Z), 1 (Pct), 3.5 (ModZ), auto (IsoF)" required>
+                                    <small id="outlier_threshold_help" class="form-text text-muted">IQR: multiplier; Z: std devs; Pct: % (e.g., 1 for 1st/99th); ModZ: threshold; IsoF: contamination ('auto' or 0.0-0.5).</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="outlier_action" class="form-label">Action:</label>
+                                    <select id="outlier_action" name="action" class="form-select" required>
+                                        <option value="remove" selected>Remove Rows with Outliers</option>
+                                        <option value="cap">Cap Outliers (Replace with bounds)</option>
+                                    </select>
+                                    <small id="outlier_action_help" class="form-text text-muted" style="display: none;">Cap not recommended for Isolation Forest.</small>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">Apply Outlier Clean</button>
+                            </form>
+                            {# JS for outlier help text included in scripts block below #}
+                        </div>
+                    </div>
+                </div> {# End Accordion Item 2 #}
+
+                <!-- == 3. Smooth Data == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingSmooth"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSmooth" aria-expanded="false" aria-controls="collapseSmooth"> 3. Smooth Data (Numeric) </button> </h2>
+                    <div id="collapseSmooth" class="accordion-collapse collapse" aria-labelledby="headingSmooth" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='smooth') }}">
+                            <div class="mb-3"><label class="form-label">Select Numeric Column:</label><select name="column" class="form-select" required>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select></div>
+                            <div class="mb-3"><label class="form-label">Method:</label><select name="smooth_method" class="form-select" required><option value="moving_average">Moving Average</option></select></div>
+                            <div class="mb-3"><label class="form-label">Window Size:</label><input type="number" name="window" class="form-control" value="3" min="2" required></div>
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                        </form>
+                    </div> </div>
+                </div>
+                <!-- == 4. Normalize Data == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingNormalize"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNormalize" aria-expanded="false" aria-controls="collapseNormalize"> 4. Normalize/Scale Data (Numeric) </button> </h2>
+                    <div id="collapseNormalize" class="accordion-collapse collapse" aria-labelledby="headingNormalize" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='normalize') }}">
+                             <div class="mb-3"><label class="form-label">Select Numeric Column(s):</label><select name="columns" class="form-select" multiple size="5">{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select><small class="form-text text-muted">Optional (default: all numeric).</small></div>
+                             <div class="mb-3"><label class="form-label">Method:</label><select name="normalize_method" class="form-select" required><option value="min_max">Min-Max Scaling (0 to 1)</option><option value="z_score">Z-Score Standardization</option></select></div>
+                             <button type="submit" class="btn btn-primary w-100">Apply</button>
+                         </form>
+                    </div> </div>
+                </div>
+                <!-- == 5. Deduplicate Records == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingDeduplicate"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDeduplicate" aria-expanded="false" aria-controls="collapseDeduplicate"> 5. Deduplicate Records </button> </h2>
+                    <div id="collapseDeduplicate" class="accordion-collapse collapse" aria-labelledby="headingDeduplicate" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='deduplicate') }}">
+                             <div class="mb-3"><label class="form-label">Based on Columns:</label><select name="columns" class="form-select" multiple size="5">{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select><small class="form-text text-muted">Optional (default: all columns).</small></div>
+                             <div class="mb-3"><label class="form-label">Keep:</label><select name="keep" class="form-select" required><option value="first">First Occurrence</option><option value="last">Last Occurrence</option><option value="none">Remove All Duplicates</option></select></div>
+                             <button type="submit" class="btn btn-primary w-100">Apply</button>
+                         </form>
+                    </div> </div>
+                </div>
+                <!-- == 6. Date Standardization == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingDate"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDate" aria-expanded="false" aria-controls="collapseDate"> 6. Date Standardization </button> </h2>
+                    <div id="collapseDate" class="accordion-collapse collapse" aria-labelledby="headingDate" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='date') }}">
+                             <div class="mb-3"><label class="form-label">Select Date Column(s):</label><select name="columns" class="form-select" multiple size="5" required>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select></div>
+                             <div class="mb-3"><label class="form-label">Output Format:</label><input type="text" name="date_format" class="form-control" placeholder="Optional (e.g., %Y-%m-%d)"><small class="form-text text-muted">Uses Python <a href="https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes" target="_blank" rel="noopener noreferrer">strftime codes</a>. Default: YYYY-MM-DD HH:MM:SS.</small></div>
+                             <div class="mb-3 form-check"><input type="checkbox" class="form-check-input" id="errors_coerce" name="errors_coerce" value="true" checked><label class="form-check-label" for="errors_coerce">Convert unparseable to NaT (missing)?</label><small class="form-text text-muted d-block">If unchecked, invalid dates cause error.</small></div>
+                             <button type="submit" class="btn btn-primary w-100">Apply</button>
+                         </form>
+                    </div> </div>
+                </div>
+                <!-- == 7. Case & Whitespace (Text) == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingCase"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCase" aria-expanded="false" aria-controls="collapseCase"> 7. Case & Whitespace (Text) </button> </h2>
+                    <div id="collapseCase" class="accordion-collapse collapse" aria-labelledby="headingCase" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='case') }}">
+                            <div class="mb-3"><label class="form-label">Select Text Column(s):</label><select name="columns" class="form-select" multiple size="5" required>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select></div>
+                            <div class="mb-3"><label class="form-label">Action:</label><select name="case_type" class="form-select" required><option value="lower">Convert to Lowercase</option><option value="upper">Convert to Uppercase</option><option value="title">Convert to Title Case</option><option value="strip">Strip Leading/Trailing Whitespace</option></select></div>
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                         </form>
+                    </div> </div>
+                </div>
+                <!-- == 8. Convert Data Type == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingConvertType"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConvertType" aria-expanded="false" aria-controls="collapseConvertType"> 8. Convert Data Type </button> </h2>
+                    <div id="collapseConvertType" class="accordion-collapse collapse" aria-labelledby="headingConvertType" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='convert_type') }}">
+                            <div class="mb-3"><label class="form-label">Select Column:</label><select name="column" class="form-select" required><option value="" disabled selected>-- Select Column --</option>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select></div>
+                            <div class="mb-3"><label class="form-label">Convert To:</label><select name="target_type" class="form-select" required><option value="" disabled selected>-- Select Target Type --</option><option value="string">Text (String)</option><option value="Int64">Integer (allows missing)</option><option value="float64">Decimal (Float)</option><option value="boolean">True/False (Boolean)</option><option value="datetime64[ns]">Date/Time</option></select><small class="form-text text-muted">Invalid values become missing.</small></div>
+                            <button type="submit" class="btn btn-primary w-100">Apply Conversion</button>
+                         </form>
+                    </div> </div>
+                </div>
+                <!-- == 9. Regex Find/Replace (Text) == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingRegexReplace"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRegexReplace" aria-expanded="false" aria-controls="collapseRegexReplace"> 9. Regex Find/Replace (Text) </button> </h2>
+                    <div id="collapseRegexReplace" class="accordion-collapse collapse" aria-labelledby="headingRegexReplace" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='regex_replace') }}">
+                            <div class="mb-3"><label class="form-label">Select Text Column:</label><select name="regex_column" class="form-select" required><option value="" disabled selected>-- Select Column --</option>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select></div>
+                            <div class="mb-3"><label class="form-label">Find Pattern (Regex):</label><input type="text" name="regex_pattern" class="form-control" required placeholder="e.g., \d+ or ^ERROR:"><small class="form-text text-muted">Uses Python regex. <a href="https://docs.python.org/3/library/re.html#regular-expression-syntax" target="_blank" rel="noopener">Syntax help</a>.</small></div>
+                            <div class="mb-3"><label class="form-label">Replace With:</label><input type="text" name="regex_replacement" class="form-control" placeholder="Leave blank to remove"><small class="form-text text-muted">Can use capture groups like \1, \2.</small></div>
+                            <button type="submit" class="btn btn-primary w-100">Apply Regex Replace</button>
+                         </form>
+                    </div> </div>
+                </div>
+                <!-- == 10. Fuzzy Match Text Values == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingFuzzyMatch"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFuzzyMatch" aria-expanded="false" aria-controls="collapseFuzzyMatch"> 10. Fuzzy Match Text Values </button> </h2>
+                     <div id="collapseFuzzyMatch" class="accordion-collapse collapse" aria-labelledby="headingFuzzyMatch" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <p class="text-muted small">Find groups of similar text values and standardize them.</p><hr>
+                        <form method="post" action="{{ url_for('fuzzy_analyze') }}" id="fuzzy-analyze-form">
+                            <div class="mb-3"><label class="form-label">Select Text Column:</label><select name="fuzzy_column" class="form-select" required><option value="" disabled selected>-- Select Column --</option>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select></div>
+                            <div class="mb-3"><label for="fuzzy_threshold" class="form-label">Similarity Threshold (%):</label><input type="number" name="fuzzy_threshold" id="fuzzy_threshold" class="form-control" min="50" max="100" value="85" required><small class="form-text text-muted">Higher value means stricter matching (50-100).</small></div>
+                            <button type="submit" class="btn btn-info w-100">Find Similar Groups</button>
+                        </form>
+                        {# Conditional display moved outside this item, search for "Fuzzy Match Results Section" #}
+                    </div> </div>
+                </div>
+                <!-- == 11. Filter by Numeric Range == -->
+                 <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingConstraint"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConstraint" aria-expanded="false" aria-controls="collapseConstraint"> 11. Filter by Numeric Range </button> </h2>
+                    <div id="collapseConstraint" class="accordion-collapse collapse" aria-labelledby="headingConstraint" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <p><small>Keep rows where a numeric column is within a specified range.</small></p>
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='constraint') }}">
+                            <div class="mb-3"><label class="form-label">Select Numeric Column:</label><select name="column" class="form-select" required>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select></div>
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label">Min Value (Incl):</label><input type="number" step="any" name="min_val" class="form-control"></div>
+                                <div class="col-md-6"><label class="form-label">Max Value (Incl):</label><input type="number" step="any" name="max_val" class="form-control"></div>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 mt-3">Apply (Keep Rows In Range)</button>
+                        </form>
+                     </div> </div>
+                </div>
+                <!-- == 12. Sort By Variable == -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingSort"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSort" aria-expanded="false" aria-controls="collapseSort"> 12. Sort By Variable </button> </h2>
+                    <div id="collapseSort" class="accordion-collapse collapse" aria-labelledby="headingSort" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='sort') }}">
+                            <div class="mb-3"><label class="form-label">Select Column(s) to Sort By:</label><select name="columns" class="form-select" multiple size="5" required>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select><small>Order matters. Hold Ctrl/Cmd.</small></div>
+                            <div class="mb-3"><label class="form-label">Sort Order:</label><select name="ascending" class="form-select" required><option value="True">Ascending</option><option value="False">Descending</option></select><small>Applies same order to all.</small></div>
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                        </form>
+                    </div> </div>
+                </div>
+                 <!-- == 13. Rename Variable == -->
+                 <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingRename"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRename" aria-expanded="false" aria-controls="collapseRename"> 13. Rename Variable (Column) </button> </h2>
+                    <div id="collapseRename" class="accordion-collapse collapse" aria-labelledby="headingRename" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='rename') }}">
+                            <div class="mb-3"><label class="form-label">Select Column to Rename:</label><select name="old_name" class="form-select" required>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select></div>
+                            <div class="mb-3"><label class="form-label">New Column Name:</label><input type="text" name="new_name" class="form-control" required></div>
+                            <button type="submit" class="btn btn-primary w-100">Apply</button>
+                        </form>
+                    </div> </div>
+                 </div>
+                 <!-- == 14. Remove Variable == -->
+                 <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingRemove"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRemove" aria-expanded="false" aria-controls="collapseRemove"> 14. Remove Variable (Column) </button> </h2>
+                    <div id="collapseRemove" class="accordion-collapse collapse" aria-labelledby="headingRemove" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <form method="post" action="{{ url_for('apply_cleaning', operation='remove') }}">
+                             <div class="mb-3"><label class="form-label">Select Column(s) to Remove:</label><select name="columns" class="form-select" multiple size="5" required>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select><small>Hold Ctrl/Cmd.</small></div>
+                             <button type="submit" class="btn btn-danger w-100">Apply</button> {# Use danger for remove #}
+                        </form>
+                     </div> </div>
+                 </div>
+                 <!-- == 15. Character Encoding Correction == -->
+                 <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingEncoding"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEncoding" aria-expanded="false" aria-controls="collapseEncoding"> 15. Character Encoding (Info) </button> </h2>
+                    <div id="collapseEncoding" class="accordion-collapse collapse" aria-labelledby="headingEncoding" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <p><small>Encoding is set when pasting/uploading. If text looks garbled (e.g., <code>Ã©</code> instead of <code>é</code>), specify encoding on the <a href="{{ url_for('index') }}">start page</a> (e.g., 'latin-1', 'cp1252'). Current source encoding/format: <strong>{{ session.get('source_encoding_info', 'N/A') }}</strong></small></p>
+                        <a href="{{ url_for('index') }}" class="btn btn-warning btn-sm">Re-Load with Different Encoding</a>
+                    </div> </div>
+                </div>
+                 <!-- == 16. Unit Standardization (Info Only) == -->
+                 <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingUnit"> <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUnit" aria-expanded="false" aria-controls="collapseUnit"> 16. Unit Standardization (Manual Note) </button> </h2>
+                    <div id="collapseUnit" class="accordion-collapse collapse" aria-labelledby="headingUnit" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
+                        <p><small>Unit standardization (e.g., 'kg' to 'g') requires context. This tool doesn't automate it. Use manual operations like 'Rename Variable', 'Regex Find/Replace', or external tools.</small></p>
+                    </div> </div>
+                </div>
+
+            </div> <!-- End Cleaning Accordion -->
+        {% endif %} {# End if columns #}
+
+        {# Error handling if no columns/file loaded #}
+        {% if not columns and session.get('original_filename') %}
+             <div class="alert alert-danger">Error loading columns. Please check the data format or try re-pasting/re-uploading.</div>
+        {% elif not session.get('original_filename') %}
+             <p class="text-danger">No data loaded. Please <a href="{{ url_for('index') }}">paste or upload data</a> first.</p>
+        {% endif %}
+    </div> <!-- End Left Column -->
+
+    <!-- ================================= -->
+    <!-- == Right Column: Data Preview == -->
+    <!-- ================================= -->
+    <div class="col-lg-8 col-md-7"> {# Adjusted grid classes #}
+        {% if df_preview %}
+            <h4 class="mb-3">{{ preview_text|default('Data Preview:', true) }}</h4>
+            <div class="table-preview-container border rounded p-1 bg-white"> {# Added border/padding #}
+                 <div class="table-responsive">
+                    {# Render NaN nicely - already done in app.py now #}
+                    {{ df_preview | safe }}
+                 </div>
+            </div>
+        {% elif columns %} {# Show error only if columns exist but preview failed #}
+             <div class="alert alert-warning">Could not generate data preview.</div>
+        {% endif %} {# End if df_preview #}
+    </div> <!-- End Right Column -->
+
+</div> <!-- End Row -->
+
+{% endblock %}
+
+{% block scripts %}
+{# JavaScript for Outlier form dynamic help text #}
+<script>
+    const methodSelect = document.getElementById('outlier_method');
+    const thresholdInput = document.getElementById('outlier_threshold');
+    const thresholdLabel = document.getElementById('outlier_threshold_label');
+    const thresholdHelp = document.getElementById('outlier_threshold_help');
+    const actionSelect = document.getElementById('outlier_action');
+    const actionHelp = document.getElementById('outlier_action_help');
+
+    // Check if all elements exist before adding listeners
+    if (methodSelect && thresholdInput && thresholdLabel && thresholdHelp && actionSelect && actionHelp) {
+        methodSelect.addEventListener('change', function() {
+            const selectedMethod = this.value;
+            actionHelp.style.display = 'none';
+            actionSelect.disabled = false; // Ensure action select is enabled by default
+
+            if (selectedMethod === 'iqr') {
+                thresholdLabel.textContent = 'Threshold Multiplier:'; thresholdInput.value = '1.5';
+                thresholdInput.placeholder = 'e.g., 1.5'; thresholdHelp.textContent = 'Multiplier for IQR (typically 1.5 or 3).';
+            } else if (selectedMethod === 'zscore') {
+                thresholdLabel.textContent = 'Z-Score Threshold:'; thresholdInput.value = '3';
+                thresholdInput.placeholder = 'e.g., 3'; thresholdHelp.textContent = 'Standard deviations from mean (typically 2 or 3).';
+            } else if (selectedMethod === 'percentile') {
+                thresholdLabel.textContent = 'Percentile (P):'; thresholdInput.value = '1';
+                thresholdInput.placeholder = 'e.g., 1 (for 1st/99th)'; thresholdHelp.textContent = 'Handle values below P-th & above (100-P)-th percentile. Enter P (0-50).';
+            } else if (selectedMethod === 'modified_zscore') {
+                thresholdLabel.textContent = 'Mod. Z-Score Threshold:'; thresholdInput.value = '3.5';
+                thresholdInput.placeholder = 'e.g., 3.5'; thresholdHelp.textContent = 'Robust threshold using MAD (typically 3 or 3.5).';
+            } else if (selectedMethod === 'isolation_forest') {
+                thresholdLabel.textContent = 'Contamination:'; thresholdInput.value = 'auto';
+                thresholdInput.placeholder = "'auto' or 0.0 to 0.5"; thresholdHelp.textContent = "Expected proportion of outliers ('auto' or ~0.01-0.1).";
+                actionHelp.style.display = 'inline'; // Show help text for action suitability
+            }
+        });
+        // Trigger change on page load to set initial state
+        document.addEventListener('DOMContentLoaded', () => {
+             methodSelect.dispatchEvent(new Event('change'));
+        });
+    } else {
+        console.warn("Outlier form elements not found for dynamic help text script.");
+    }
+</script>
+{% endblock %}

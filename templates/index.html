@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Paste CSV Data{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10 col-lg-8"> {# Made slightly wider for textarea #}
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">Paste CSV Data for Cleaning</h4>
+            </div>
+            <div class="card-body">
+                 <p class="card-text text-muted">Paste your raw CSV data directly into the text area below.</p>
+                 <p class="card-text text-muted"><small>Ensure the first row contains headers and data is comma-separated.</small></p>
+                <hr>
+                {# The form still posts to the same upload_file route #}
+                <form method="post" enctype="multipart/form-data" action="{{ url_for('upload_file') }}">
+                    {# --- Text Area for Pasting Data --- #}
+                    <div class="mb-3">
+                        <label for="csv_data_input" class="form-label">Paste CSV Data Here:</label>
+                        <textarea class="form-control" id="csv_data_input" name="csv_data" rows="15" placeholder="Example:
+Header1,Header2,Header3
+Value1A,Value2A,Value3A
+Value1B,Value2B,Value3B" required></textarea>
+                         <small class="form-text text-muted">Make sure data includes headers and uses commas as delimiters.</small>
+                    </div>
+
+                    {# --- Optional Encoding Input (Less common for paste, but kept for edge cases) --- #}
+                    <div class="mb-3">
+                        <label for="encoding" class="form-label">Character Encoding (Optional):</label>
+                        <input type="text" class="form-control" id="encoding" name="encoding" placeholder="Usually utf-8 (leave blank if unsure)">
+                        <small class="form-text text-muted">Specify encoding only if pasted text displays incorrectly (e.g., 'latin-1', 'cp1252').</small>
+                    </div>
+
+                    {# --- Submit Button --- #}
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard-check-fill me-1" viewBox="0 0 16 16">
+                               <path d="M10 .5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5V2a.5.5 0 0 0 .5.5h5A.5.5 0 0 0 11 2v-.5a.5.5 0 0 0-.5-.5.5.5 0 0 1-.5-.5"/>
+                               <path d="M4.085 1H3.5A1.5 1.5 0 0 0 2 2.5v12A1.5 1.5 0 0 0 3.5 16h9a1.5 1.5 0 0 0 1.5-1.5v-12A1.5 1.5 0 0 0 12.5 1h-.585c.055.156.085.325.085.5V2a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 4 2v-.5c0-.175.03-.344.085-.5m6.769 6.854-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708.708"/>
+                             </svg>
+                             Process Pasted Data
+                        </button>
+                     </div>
+                </form>
+             </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

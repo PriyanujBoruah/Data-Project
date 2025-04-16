@@ -1,0 +1,99 @@
+{# templates/visualize.html #}
+{% extends "base.html" %}
+{% block title %}Visualize Data{% endblock %}
+
+{# Add Plotly JS in head #}
+{% block head_extra %}
+    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+    <style>
+        .plot-container {
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 5px;
+            overflow: hidden; /* Ensure plots don't overflow container */
+        }
+        .plot-container h5 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+            color: #495057;
+        }
+        /* Grid for plots */
+        .plot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); /* Responsive grid */
+            gap: 20px; /* Space between plots */
+        }
+        @media (max-width: 768px) {
+            .plot-grid {
+                 grid-template-columns: 1fr; /* Stack plots on smaller screens */
+            }
+        }
+    </style>
+{% endblock %}
+
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Data Visualization: {{ filename }}</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('clean_data') }}" class="btn btn-sm btn-outline-secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left-square-fill" viewBox="0 0 16 16">
+              <path d="M16 14a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12zm-4.5-6.5H5.707l2.147-2.146a.5.5 0 1 0-.708-.708l-3 3a.5.5 0 0 0 0 .708l3 3a.5.5 0 0 0 .708-.708L5.707 8.5H11.5a.5.5 0 0 0 0-1z"/>
+            </svg>
+            Back to Cleaning
+        </a>
+    </div>
+</div>
+
+{# --- Histograms Section --- #}
+{% if plots.histograms %}
+    <h3 class="mt-4 mb-3">Numeric Distributions (Histograms)</h3>
+    <div class="plot-grid">
+        {% for plot in plots.histograms %}
+            <div class="plot-container">
+                {# <h5>{{ plot.title }}</h5> #} {# Title is already in the plot object #}
+                {{ plot.div | safe }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+{# --- Bar Charts Section --- #}
+{% if plots.bar_charts %}
+    <h3 class="mt-4 mb-3">Categorical Distributions (Bar Charts)</h3>
+     <div class="plot-grid">
+        {% for plot in plots.bar_charts %}
+            <div class="plot-container">
+                 {# <h5>{{ plot.title }}</h5> #}
+                {{ plot.div | safe }}
+            </div>
+        {% endfor %}
+     </div>
+{% endif %}
+
+{# --- Scatter Plots Section --- #}
+{% if plots.scatter_plots %}
+    <h3 class="mt-4 mb-3">Numeric Relationships (Scatter Plots)</h3>
+    <p><small class="text-muted">Showing first {{ plots.scatter_plots | length }} pairs.</small></p>
+    <div class="plot-grid">
+        {% for plot in plots.scatter_plots %}
+             <div class="plot-container">
+                 {# <h5>{{ plot.title }}</h5> #}
+                {{ plot.div | safe }}
+             </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+{# --- Message if no plots generated --- #}
+{% if not plots.histograms and not plots.bar_charts and not plots.scatter_plots %}
+    <div class="alert alert-info mt-4">
+        No basic visualizations could be generated for this dataset (e.g., no suitable numeric or low-cardinality categorical columns found).
+    </div>
+{% endif %}
+
+{% endblock %}
