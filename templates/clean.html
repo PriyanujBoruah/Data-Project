@@ -5,7 +5,8 @@
 {# --- Top Action Bar --- #}
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom">
     <h2 class="h4 text-break me-3">Clean: {{ session.get('original_filename', 'Unknown File') }}</h2> {# Added margin #}
-    <div class="btn-toolbar mb-2 mb-md-0 d-flex flex-wrap justify-content-center justify-content-md-end"> {# Adjusted alignment #}
+    <h4 class="mb-3">{{ preview_text|default('Data Preview:', true) }}</h4>
+    <div class="btn-toolbar mb-2 mb-md-0 d-flex flex-wrap justify-content-center justify-content-evenly"> {# Adjusted alignment #}
 
         {# --- Auto Explore Button --- #}
         <form method="post" action="{{ url_for('explore_data') }}" class="me-2 mb-1">
@@ -17,7 +18,7 @@
 
         {# --- Generate Profile Button --- #}
         <form method="post" action="{{ url_for('profile_data') }}" class="me-2 mb-1">
-            <button type="submit" class="btn btn-secondary btn-sm" title="Generate detailed column statistics">
+            <button type="submit" class="btn btn-info btn-sm" title="Generate detailed column statistics">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bar-chart-line-fill" viewBox="0 0 16 16"><path d="M11 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v12h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1v-3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3h1V7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7h1V2z"/></svg>
                 Data Profile
             </button>
@@ -57,11 +58,20 @@
         </form>
         {# --- End NEW Button --- #}
 
-        {# --- Visualize Button --- #}
+        
+        <!-- {# --- Visualize Button --- #}
         <a href="{{ url_for('visualize_data') }}" class="btn btn-secondary btn-sm me-2 mb-1" title="Visualize current data">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bar-chart-steps" viewBox="0 0 16 16"><path d="M.5 0a.5.5 0 0 1 .5.5v15a.5.5 0 0 1-1 0V.5A.5.5 0 0 1 .5 0zM2 1.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1-.5-.5v-1zm2 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-1zm2 4a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-6a.5.5 0 0 1-.5-.5v-1zm2 4a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-1z"/></svg>
             Visualize
+        </a> -->
+        
+
+        {# --- NEW Analyze Data Button --- #}
+        <a href="{{ url_for('analyze_data') }}" class="btn btn-primary btn-sm me-2 mb-1" title="Go to Data Analysis page">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard2-data-fill" viewBox="0 0 16 16"><path d="M10 .5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5.5.5 0 0 1-.5.5.5.5 0 0 0-.5.5V2a.5.5 0 0 0 .5.5h5A.5.5 0 0 0 11 2v-.5a.5.5 0 0 0-.5-.5.5.5 0 0 1-.5-.5Z"/><path d="M4.085 1H3.5A1.5 1.5 0 0 0 2 2.5v12A1.5 1.5 0 0 0 3.5 16h9a1.5 1.5 0 0 0 1.5-1.5v-12A1.5 1.5 0 0 0 12.5 1h-.585c.055.156.085.325.085.5V2a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 4 2v-.5c0-.175.03-.344.085-.5ZM10 7a1 1 0 1 1 2 0v5a1 1 0 1 1-2 0V7Zm-6 4a1 1 0 1 1 2 0v1a1 1 0 1 1-2 0v-1Zm4-3a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0V9a1 1 0 0 1 1-1Z"/></svg>
+            Analyze Data
         </a>
+        {# --- End NEW Button --- #}
 
         {# --- Download Button Dropdown --- #}
         <div class="btn-group mb-1">
@@ -265,7 +275,7 @@
     <!-- ====================================== -->
     <div class="col-lg-4 col-md-5 mb-4" id="cleaning-controls-column">
         {% if columns %}
-            <h4 class="mb-3">Manual Cleaning Operations:</h4>
+            <!--<h4 class="mb-3">Manual Cleaning Operations:</h4>!-->
             <div class="accordion" id="cleaningAccordion">
 
                 <!-- == 1. Clean Missing Data == -->
@@ -447,7 +457,7 @@
                         <form method="post" action="{{ url_for('fuzzy_analyze') }}" id="fuzzy-analyze-form">
                             <div class="mb-3"><label class="form-label">Select Text Column:</label><select name="fuzzy_column" class="form-select" required><option value="" disabled selected>-- Select Column --</option>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select></div>
                             <div class="mb-3"><label for="fuzzy_threshold" class="form-label">Similarity Threshold (%):</label><input type="number" name="fuzzy_threshold" id="fuzzy_threshold" class="form-control" min="50" max="100" value="85" required><small class="form-text text-muted">Higher value means stricter matching (50-100).</small></div>
-                            <button type="submit" class="btn btn-info w-100">Find Similar Groups</button>
+                            <button type="submit" class="btn btn-primary w-100">Find Similar Groups</button>
                         </form>
                         {# Conditional display moved outside this item, search for "Fuzzy Match Results Section" #}
                     </div> </div>
@@ -495,7 +505,7 @@
                     <div id="collapseRemove" class="accordion-collapse collapse" aria-labelledby="headingRemove" data-bs-parent="#cleaningAccordion"> <div class="accordion-body">
                         <form method="post" action="{{ url_for('apply_cleaning', operation='remove') }}">
                              <div class="mb-3"><label class="form-label">Select Column(s) to Remove:</label><select name="columns" class="form-select" multiple size="5" required>{% for col in columns %}<option value="{{ col }}">{{ col }}</option>{% endfor %}</select><small>Hold Ctrl/Cmd.</small></div>
-                             <button type="submit" class="btn btn-danger w-100">Apply</button> {# Use danger for remove #}
+                             <button type="submit" class="btn btn-primary w-100">Apply</button> {# Use danger for remove #}
                         </form>
                      </div> </div>
                  </div>
@@ -531,7 +541,7 @@
     <!-- ================================= -->
     <div class="col-lg-8 col-md-7"> {# Adjusted grid classes #}
         {% if df_preview %}
-            <h4 class="mb-3">{{ preview_text|default('Data Preview:', true) }}</h4>
+            
             <div class="table-preview-container border rounded p-1 bg-white"> {# Added border/padding #}
                  <div class="table-responsive">
                     {# Render NaN nicely - already done in app.py now #}
