@@ -12,4 +12,5 @@ openpyxl==3.1.5 # For Excel reading/writing
 gunicorn==23.0.0 # WSGI server for production
 supabase==2.15.0 # Use >=2.0 as we adapted for its API
 python-dotenv==0.19.2 # For loading .env locally (Render ignores it)
+Werkzeug==2.3.8
 requests==2.32.3 # Often a dependency, good to specify
