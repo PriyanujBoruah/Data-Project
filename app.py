@@ -7,10 +7,11 @@ from flask import (Flask, request, render_template, redirect, url_for,
 from werkzeug.utils import secure_filename
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from scipy import stats
+import scipy.stats as stats
 # import chardet # Not needed if only using paste/Supabase for intermediate
 from collections import Counter
 import time
-from pandas.api.types import is_numeric_dtype, is_string_dtype, is_datetime64_any_dtype, is_object_dtype, is_bool_dtype
+from pandas.api.types import is_numeric_dtype, is_string_dtype, is_datetime64_any_dtype, is_object_dtype, is_bool_dtype, is_categorical_dtype
 import io # Still needed for StringIO and BytesIO
 from thefuzz import fuzz
 import re
@@ -58,6 +59,432 @@ if SUPABASE_URL and SUPABASE_KEY:
         # sys.exit("Exiting due to Supabase connection failure.")
 else:
     print("WARNING: Supabase URL or Key not found in environment variables. External storage will fail.")
+
+# --- Plotting Configuration ---
+# Consistent plot appearance
+pio.templates.default = "plotly_white"
+DEFAULT_PLOT_LAYOUT = {
+    'title_x': 0.5, # Center titles
+    'height': 375,  # Default height
+    'margin': dict(l=50, r=30, t=60, b=40) # Consistent margins
+}
+
+
+# --- NEW DATA ANALYSIS HELPER FUNCTIONS ---
+
+def update_layout(fig, title):
+    """Helper to apply default layout updates."""
+    fig.update_layout(title=title, **DEFAULT_PLOT_LAYOUT)
+    return fig
+
+# --- Column Type Identification (Slightly enhanced) ---
+def get_column_types(df):
+    """Categorizes columns into types for UI dropdowns."""
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+    # Treat boolean as categorical for grouping/plotting
+    categorical_cols = df.select_dtypes(include=['object', 'string', 'category', 'boolean']).columns.tolist()
+    datetime_cols = df.select_dtypes(include=['datetime', 'datetimetz']).columns.tolist()
+
+    low_cardinality_cols = []
+    high_cardinality_cols = []
+    for col in categorical_cols:
+        nunique = df[col].nunique()
+        # Define thresholds (adjust as needed)
+        if nunique <= 1: # Constant columns (might already be handled by cleaning)
+             pass # Or add to a separate list if needed
+        elif nunique <= 50:
+            low_cardinality_cols.append(col)
+        else:
+            # Flag likely IDs (very high unique count relative to rows) separately?
+            # if nunique / len(df) > 0.95: # Example heuristic
+            #     pass # Treat as ID
+            # else:
+            high_cardinality_cols.append(col)
+
+    other_cols = df.columns.difference(numeric_cols + categorical_cols + datetime_cols).tolist()
+
+    return {
+        'numeric': numeric_cols,
+        'categorical': categorical_cols, # All object/string/cat/bool
+        'low_cardinality_categorical': low_cardinality_cols, # Suitable for x-axis/color
+        'high_cardinality_categorical': high_cardinality_cols, # Maybe only for info
+        'datetime': datetime_cols,
+        'other': other_cols
+    }
+
+def analyze_numeric_column(df, col_name):
+    """Generates enhanced stats and plots for a single numeric column."""
+    if col_name not in df.columns or not is_numeric_dtype(df[col_name]):
+        flash(f"'{col_name}' is not a valid numeric column.", "warning")
+        return None, None, None
+
+    col_data = df[col_name].dropna()
+    if col_data.empty:
+        flash(f"Numeric column '{col_name}' contains no non-missing values.", "info")
+        return {'count': 0, 'missing': df[col_name].isnull().sum()}, None, None
+
+    # Calculate Enhanced Stats
+    stats_dict = {}
+    desc = col_data.describe(percentiles=[.01, .05, .25, .5, .75, .95, .99]).round(4)
+    stats_dict.update(desc.to_dict())
+    stats_dict['median'] = round(col_data.median(), 4) # Explicit median
+    try: stats_dict['skewness'] = round(col_data.skew(), 4)
+    except Exception: stats_dict['skewness'] = 'N/A'
+    try: stats_dict['kurtosis'] = round(col_data.kurt(), 4)
+    except Exception: stats_dict['kurtosis'] = 'N/A'
+    if stats_dict.get('mean') and abs(stats_dict['mean']) > 1e-9: # Avoid division by zero
+        stats_dict['coeff_variation'] = round(stats_dict.get('std', 0) / stats_dict['mean'], 4)
+    else:
+         stats_dict['coeff_variation'] = 'N/A'
+    try: # Median Absolute Deviation
+        mad = median_abs_deviation(col_data, scale='normal', nan_policy='omit')
+        stats_dict['mad'] = round(mad, 4)
+    except Exception: stats_dict['mad'] = 'N/A'
+    stats_dict['num_zeros'] = int((col_data == 0).sum())
+    stats_dict['missing'] = int(df[col_name].isnull().sum())
+    stats_dict['count_total'] = len(df[col_name]) # Total including missing
+
+    # Generate Plots
+    hist_div, box_div = None, None
+    try:
+        fig_hist = px.histogram(col_data, x=col_name, marginal="box") # Histogram with box plot
+        hist_div = pio.to_html(update_layout(fig_hist, f"Distribution of {col_name}"), full_html=False, include_plotlyjs=False)
+    except Exception as e: print(f"Error plot hist {col_name}: {e}")
+
+    try:
+        fig_box = px.box(col_data, y=col_name, points="outliers") # Separate Box Plot
+        box_div = pio.to_html(update_layout(fig_box, f"Box Plot of {col_name}"), full_html=False, include_plotlyjs=False)
+    except Exception as e: print(f"Error plot box {col_name}: {e}")
+
+    return stats_dict, hist_div, box_div
+
+def analyze_categorical_column(df, col_name, top_n=20):
+    """Generates value counts table and bar chart for categorical columns."""
+    if col_name not in df.columns: # Basic check
+        flash(f"Column '{col_name}' not found.", "warning")
+        return None, None
+    # Check if it's treatable as categorical
+    if not (is_string_dtype(df[col_name]) or is_object_dtype(df[col_name]) or pd.api.types.is_categorical_dtype(df[col_name]) or is_bool_dtype(df[col_name])):
+         flash(f"Column '{col_name}' is not a recognized categorical type.", "warning")
+         return None, None
+
+    col_data = df[col_name].astype(str).fillna("(Missing)") # Treat uniformly as string
+    counts = col_data.value_counts()
+
+    if counts.empty:
+        flash(f"Categorical column '{col_name}' contains no values.", "info")
+        return "No data available.", None
+
+    # Prepare data for table (Top N + Other)
+    if len(counts) > top_n:
+        top_counts = counts.head(top_n)
+        other_count = counts.iloc[top_n:].sum()
+        counts_display = pd.concat([top_counts, pd.Series({'*Other*': other_count})]) if other_count > 0 else top_counts
+    else:
+        counts_display = counts
+
+    counts_df = counts_display.reset_index()
+    counts_df.columns = ['Value', 'Count']
+    counts_df['Percentage'] = (counts_df['Count'] / len(col_data) * 100).round(2)
+    counts_html = counts_df.to_html(classes='table table-sm table-striped', index=False, border=0)
+
+    # Generate Bar Chart
+    plot_div = None
+    try:
+        fig = px.bar(counts_df.head(top_n + 1), x='Value', y='Count', text='Percentage') # Show percentage on bars
+        fig.update_traces(texttemplate='%{text:.2s}%', textposition='outside')
+        fig = update_layout(fig, f"Top {len(counts_df)} Value Counts for {col_name}")
+        if len(counts_df) > 10: fig.update_xaxes(tickangle=-45) # Angle labels if many cats
+        plot_div = pio.to_html(fig, full_html=False, include_plotlyjs=False)
+    except Exception as e: print(f"Error plot bar {col_name}: {e}")
+
+    return counts_html, plot_div
+
+
+def analyze_datetime_column(df, col_name):
+    """Generates info and timeline plot for datetime columns."""
+    if col_name not in df.columns or not is_datetime64_any_dtype(df[col_name]):
+        flash(f"'{col_name}' is not a datetime column.", "warning")
+        return None, None
+
+    col_data = df[col_name].dropna()
+    stats_dict = {
+        'missing_count': int(df[col_name].isnull().sum()),
+        'unique_count': 0, 'min': 'N/A', 'max': 'N/A', 'duration': 'N/A'
+    }
+    plot_div = None
+
+    if not col_data.empty:
+        stats_dict['min'] = str(col_data.min())
+        stats_dict['max'] = str(col_data.max())
+        stats_dict['unique_count'] = col_data.nunique()
+        duration = col_data.max() - col_data.min()
+        stats_dict['duration'] = str(duration)
+
+        # Generate Timeline Plot (Counts per time period)
+        try:
+            # Dynamically choose resampling period (or let histogram auto-bin)
+            time_range_days = (col_data.max() - col_data.min()).days
+            if time_range_days > 365 * 2: freq = 'M' # Monthly if > 2 years
+            elif time_range_days > 60: freq = 'W' # Weekly if > 2 months
+            else: freq = 'D' # Daily otherwise
+            # Example using histogram auto-binning - often good enough
+            fig = px.histogram(col_data, x=col_name)
+            fig = update_layout(fig, f"Record Count Over Time for {col_name}")
+            plot_div = pio.to_html(fig, full_html=False, include_plotlyjs=False)
+        except Exception as e: print(f"Error plot time {col_name}: {e}")
+    else:
+        flash(f"Datetime column '{col_name}' has no non-missing values.", "info")
+
+    return stats_dict, plot_div
+
+def analyze_numeric_vs_numeric(df, col_x, col_y):
+    """Generates correlation, scatter plot for two numeric columns."""
+    if col_x not in df.columns or not is_numeric_dtype(df[col_x]) or \
+       col_y not in df.columns or not is_numeric_dtype(df[col_y]):
+       flash("Both selected columns must be numeric.", "warning")
+       return None, None, None
+
+    results = {'correlation_pearson': 'N/A', 'correlation_spearman': 'N/A', 'p_value_pearson': 'N/A'}
+    plot_div = None
+    df_pair = df[[col_x, col_y]].dropna()
+
+    if len(df_pair) > 1:
+        try: # Pearson (Linear)
+            corr_p, p_val_p = stats.pearsonr(df_pair[col_x], df_pair[col_y])
+            results['correlation_pearson'] = round(corr_p, 4)
+            results['p_value_pearson'] = f"{p_val_p:.3g}" # Scientific notation if small
+        except Exception as e: print(f"Pearson corr fail {col_x}v{col_y}: {e}")
+
+        try: # Spearman (Monotonic)
+            corr_s, p_val_s = stats.spearmanr(df_pair[col_x], df_pair[col_y])
+            results['correlation_spearman'] = round(corr_s, 4)
+            # results['p_value_spearman'] = f"{p_val_s:.3g}" # Optional to show
+        except Exception as e: print(f"Spearman corr fail {col_x}v{col_y}: {e}")
+
+        try: # Scatter Plot
+            fig = px.scatter(df_pair, x=col_x, y=col_y, trendline="ols", trendline_color_override="red", opacity=0.7)
+            fig = update_layout(fig, f"Scatter Plot: {col_x} vs {col_y}")
+            fig.update_layout(height=400) # Slightly taller scatter
+            plot_div = pio.to_html(fig, full_html=False, include_plotlyjs=False)
+        except Exception as e: print(f"Scatter plot fail {col_x}v{col_y}: {e}")
+    else:
+        flash("Not enough non-missing data points for analysis.", "info")
+
+
+    return results, plot_div
+
+def analyze_numeric_vs_categorical(df, num_col, cat_col):
+    """Generates box/violin plots for numeric grouped by categorical."""
+    if num_col not in df.columns or not is_numeric_dtype(df[num_col]) or cat_col not in df.columns:
+       flash("Invalid columns selected.", "warning"); return None, None
+
+    box_div, violin_div = None, None
+    df_pair = df[[num_col, cat_col]].dropna(subset=[num_col])
+    df_pair[cat_col] = df_pair[cat_col].astype(str).fillna("(Missing)")
+    num_categories = df_pair[cat_col].nunique()
+
+    if not df_pair.empty and num_categories > 0:
+        # Only generate plots if categories are manageable
+        if num_categories > 50:
+            flash(f"Too many categories ({num_categories}) in '{cat_col}' for Box/Violin plots.", "warning")
+            return None, None
+        try: # Box Plot
+            fig_box = px.box(df_pair, x=cat_col, y=num_col, points="outliers")
+            fig_box = update_layout(fig_box, f"Box Plot of {num_col} by {cat_col}")
+            if num_categories > 8: fig_box.update_xaxes(tickangle=-45)
+            box_div = pio.to_html(fig_box, full_html=False, include_plotlyjs=False)
+        except Exception as e: print(f"Box plot fail {num_col}v{cat_col}: {e}")
+
+        try: # Violin Plot
+            fig_violin = px.violin(df_pair, x=cat_col, y=num_col, box=True, points="outliers") # Show box inside
+            fig_violin = update_layout(fig_violin, f"Violin Plot of {num_col} by {cat_col}")
+            if num_categories > 8: fig_violin.update_xaxes(tickangle=-45)
+            violin_div = pio.to_html(fig_violin, full_html=False, include_plotlyjs=False)
+        except Exception as e: print(f"Violin plot fail {num_col}v{cat_col}: {e}")
+    else:
+         flash("Not enough data for numeric vs categorical analysis.", "info")
+
+    return box_div, violin_div
+
+def analyze_categorical_vs_categorical(df, cat_col1, cat_col2):
+    """Generates cross-tab, Chi-squared test, and optional heatmap."""
+    if cat_col1 not in df.columns or cat_col2 not in df.columns:
+        flash("Invalid columns selected.", "warning"); return None, None, None
+
+    crosstab_html = None
+    heatmap_div = None
+    test_results = {'chi2_statistic': 'N/A', 'p_value': 'N/A', 'dof': 'N/A', 'interpretation': 'N/A', 'warning': None}
+
+    try:
+        # Treat as string and handle missing explicitly
+        cat1_series = df[cat_col1].astype(str).fillna("(Missing)")
+        cat2_series = df[cat_col2].astype(str).fillna("(Missing)")
+
+        # Crosstab with totals
+        crosstab_df = pd.crosstab(cat1_series, cat2_series, margins=True, margins_name="Total")
+        crosstab_html = crosstab_df.to_html(classes='table table-sm table-bordered', border=1)
+
+        # Chi-Squared Test (only if enough data and categories)
+        observed = pd.crosstab(cat1_series, cat2_series) # No margins for test
+        if observed.shape[0] > 1 and observed.shape[1] > 1 and observed.sum().sum() > 0:
+             try:
+                 chi2, p, dof, expected = stats.chi2_contingency(observed)
+                 test_results['chi2_statistic'] = round(chi2, 4)
+                 test_results['p_value'] = f"{p:.3g}"
+                 test_results['dof'] = dof
+                 alpha = 0.05
+                 if p < alpha:
+                     test_results['interpretation'] = f"Significant association found (p < {alpha})."
+                 else:
+                     test_results['interpretation'] = f"No significant association found (p >= {alpha})."
+                 # Check for low expected frequencies (assumption of Chi-Squared)
+                 if (expected < 5).any().any():
+                     test_results['warning'] = "Warning: Some expected frequencies are low (< 5), Chi-Squared test results may be unreliable."
+                     flash(test_results['warning'], "warning")
+             except ValueError as ve: # e.g., if table has zeros in places preventing calculation
+                  test_results['interpretation'] = f"Chi-squared test could not be performed ({ve})."
+                  print(f"Chi2 fail {cat_col1}v{cat_col2}: {ve}")
+             except Exception as e:
+                  test_results['interpretation'] = "Error during Chi-squared test."
+                  print(f"Chi2 fail {cat_col1}v{cat_col2}: {e}")
+        else:
+            test_results['interpretation'] = "Chi-squared test requires at least 2 rows and 2 columns in the contingency table."
+
+
+        # Optional: Heatmap for counts (if not too large)
+        if observed.shape[0] <= 30 and observed.shape[1] <= 30: # Limit heatmap size
+            try:
+                fig_heatmap = px.imshow(observed, text_auto=True, aspect="auto", title=f"Heatmap of Counts: {cat_col1} vs {cat_col2}")
+                fig_heatmap = update_layout(fig_heatmap, f"Counts: {cat_col1} vs {cat_col2}")
+                heatmap_div = pio.to_html(fig_heatmap, full_html=False, include_plotlyjs=False)
+            except Exception as e: print(f"Crosstab heatmap fail: {e}")
+
+    except Exception as e:
+        print(f"Error generating crosstab for {cat_col1} vs {cat_col2}: {e}")
+        flash(f"Could not generate cross-tabulation: {e}", "danger")
+
+    return crosstab_html, heatmap_div, test_results
+
+
+def generate_correlation_heatmap(df, method='pearson'):
+    """Generates correlation heatmap for numeric columns."""
+    numeric_cols = df.select_dtypes(include=np.number).columns
+    plot_div = None
+    if len(numeric_cols) < 2:
+        flash("Need at least two numeric columns for correlation.", "info"); return None
+    if method not in ['pearson', 'spearman', 'kendall']:
+        flash("Invalid correlation method specified.", "warning"); return None
+
+    try:
+        corr_matrix = df[numeric_cols].corr(method=method).round(2)
+        fig = px.imshow(corr_matrix, text_auto=True, aspect="auto",
+                        color_continuous_scale='RdBu_r', zmin=-1, zmax=1)
+        fig = update_layout(fig, f"{method.capitalize()} Correlation Heatmap")
+        fig.update_layout(height=max(450, len(numeric_cols)*25 + 50)) # Dynamic height
+        plot_div = pio.to_html(fig, full_html=False, include_plotlyjs=False)
+    except Exception as e: print(f"Corr heatmap fail: {e}"); flash("Could not generate correlation heatmap.", "warning")
+    return plot_div
+
+
+def generate_grouped_summary(df, group_by_cols, value_cols, agg_funcs):
+    """Performs groupby aggregation and returns HTML table."""
+    if not group_by_cols or not value_cols or not agg_funcs:
+        flash("Ensure Group By, Value, and Function fields are selected.", "warning"); return None
+
+    valid_group_by = [col for col in group_by_cols if col in df.columns]
+    valid_value_cols = [col for col in value_cols if col in df.columns and is_numeric_dtype(df[col])]
+    # Simple validation for agg funcs - more robust checking might be needed
+    valid_agg_funcs = [f for f in list(set(agg_funcs)) if f in ['mean', 'median', 'sum', 'count', 'std', 'min', 'max', 'nunique']]
+
+    if not valid_group_by or not valid_value_cols or not valid_agg_funcs:
+         missing = [item for sublist in [group_by_cols, value_cols, agg_funcs] for item in sublist if item not in valid_group_by + valid_value_cols + valid_agg_funcs]
+         flash(f"Invalid selections for Group By operation. Check columns/functions. Missing/Invalid: {missing}", "warning"); return None
+
+    try:
+        agg_dict = {val_col: valid_agg_funcs for val_col in valid_value_cols}
+        summary_df = df.groupby(valid_group_by, observed=False).agg(agg_dict).round(4) # observed=False is safer default
+
+        if isinstance(summary_df.columns, pd.MultiIndex):
+             summary_df.columns = ['_'.join(col).strip('_') for col in summary_df.columns.values]
+
+        summary_html = summary_df.reset_index().to_html(classes='table table-sm table-striped', index=False, border=0, na_rep='-')
+        return summary_html
+    except Exception as e: print(f"Groupby fail: {e}"); flash(f"Group By operation failed: {e}", "danger"); return None
+
+
+def perform_ttest_ind(df, num_col, bin_cat_col):
+    """Performs independent T-test."""
+    results = {'statistic': 'N/A', 'p_value': 'N/A', 'interpretation': 'N/A', 'groups_compared': 'N/A', 'warning': None}
+    if num_col not in df.columns or not is_numeric_dtype(df[num_col]) or \
+       bin_cat_col not in df.columns:
+        results['interpretation'] = "Invalid columns selected."; return results
+
+    # Ensure categorical column is truly binary (after dropping NaNs)
+    valid_data = df[[num_col, bin_cat_col]].dropna()
+    groups = valid_data[bin_cat_col].unique()
+    if len(groups) != 2:
+         results['interpretation'] = f"Categorical column '{bin_cat_col}' must have exactly 2 unique non-missing values for T-test (found {len(groups)})."; return results
+
+    group1_data = valid_data[valid_data[bin_cat_col] == groups[0]][num_col]
+    group2_data = valid_data[valid_data[bin_cat_col] == groups[1]][num_col]
+    results['groups_compared'] = f"{groups[0]} vs {groups[1]}"
+
+    if len(group1_data) < 2 or len(group2_data) < 2:
+        results['interpretation'] = "Not enough data in one or both groups for T-test."; return results
+
+    try:
+        # Welch's t-test (doesn't assume equal variances) is generally safer
+        stat, p = stats.ttest_ind(group1_data, group2_data, equal_var=False, nan_policy='omit')
+        results['statistic'] = round(stat, 4)
+        results['p_value'] = f"{p:.3g}"
+        alpha = 0.05
+        if p < alpha: results['interpretation'] = f"Means are significantly different (p < {alpha})."
+        else: results['interpretation'] = f"No significant difference in means found (p >= {alpha})."
+    except Exception as e: print(f"T-test fail: {e}"); results['interpretation'] = f"Error during T-test: {e}"
+    return results
+
+def perform_anova(df, num_col, cat_col):
+    """Performs One-Way ANOVA."""
+    results = {'statistic': 'N/A', 'p_value': 'N/A', 'interpretation': 'N/A', 'num_groups': 0, 'warning': None}
+    if num_col not in df.columns or not is_numeric_dtype(df[num_col]) or \
+       cat_col not in df.columns:
+        results['interpretation'] = "Invalid columns selected."; return results
+
+    valid_data = df[[num_col, cat_col]].dropna()
+    unique_groups = valid_data[cat_col].unique()
+    results['num_groups'] = len(unique_groups)
+
+    if len(unique_groups) < 2:
+        results['interpretation'] = "ANOVA requires at least 2 groups."; return results
+
+    # Prepare data as a list of arrays, one for each group
+    group_data = [valid_data[valid_data[cat_col] == group][num_col] for group in unique_groups]
+    # Filter out groups with insufficient data (<2) for ANOVA calculation
+    group_data_filtered = [g for g in group_data if len(g) >= 2]
+
+    if len(group_data_filtered) < 2: # Need at least two valid groups
+         results['interpretation'] = "Not enough groups with sufficient data (>1 sample) for ANOVA."; return results
+    if len(group_data_filtered) < len(group_data):
+         results['warning'] = f"Warning: {len(group_data) - len(group_data_filtered)} group(s) excluded from ANOVA due to insufficient data."
+         flash(results['warning'], 'warning')
+
+    try:
+        stat, p = stats.f_oneway(*group_data_filtered)
+        results['statistic'] = round(stat, 4)
+        results['p_value'] = f"{p:.3g}"
+        alpha = 0.05
+        if p < alpha: results['interpretation'] = f"At least one group mean is significantly different (p < {alpha})."
+        else: results['interpretation'] = f"No significant difference between group means found (p >= {alpha})."
+        # Add reminder about post-hoc tests if significant?
+        # if p < alpha: results['interpretation'] += " Consider post-hoc tests for pairwise comparisons."
+    except Exception as e: print(f"ANOVA fail: {e}"); results['interpretation'] = f"Error during ANOVA: {e}"
+    return results
+
+
+# --- END OF NEW DATA ANALYSIS HELPER FUNCTIONS ---
+
+
 
 # --- Helper Functions ---
 
@@ -598,36 +1025,104 @@ def profile_data():
     except Exception as e: flash(f"Error during profiling: {e}", "danger"); session.pop('profile_results', None); traceback.print_exc()
     return redirect(url_for('clean_data'))
 
+# --- Fuzzy Analysis Route (Corrected) ---
 @app.route('/fuzzy_analyze', methods=['POST'])
 def fuzzy_analyze():
+    """Analyzes a column to find potentially similar groups using fuzzy matching."""
     object_path = session.get('current_file_path')
-    if not object_path: flash("No data loaded.", "warning"); return redirect(url_for('index'))
-    col = request.form.get('fuzzy_column');
-    try: threshold = int(request.form.get('fuzzy_threshold', 85)); assert 0 <= threshold <= 100
-    except Exception: flash("Invalid threshold (0-100).", "danger"); return redirect(url_for('clean_data'))
-    if not col: flash("Select a column.", "warning"); return redirect(url_for('clean_data'))
+    if not object_path:
+        flash("No data loaded to analyze.", "warning")
+        return redirect(url_for('index')) # Redirect home if no data
 
+    # Get and validate inputs
+    col = request.form.get('fuzzy_column')
+    try:
+        threshold = int(request.form.get('fuzzy_threshold', 85)) # Default 85
+        if not (0 <= threshold <= 100):
+            raise ValueError("Threshold must be between 0 and 100.")
+    except (ValueError, TypeError):
+        flash("Invalid similarity threshold (must be 0-100 integer).", "danger")
+        return redirect(url_for('clean_data')) # Redirect back to clean page
+
+    if not col:
+         flash("Please select a column to analyze for fuzzy matching.", "warning")
+         return redirect(url_for('clean_data'))
+
+    # Read data
     df = read_data_from_supabase(object_path)
-    if df is None: return redirect(url_for('clean_data'))
-    if col not in df.columns: flash(f"Column '{col}' not found.", "warning"); return redirect(url_for('clean_data'))
+    if df is None:
+        # read_data_from_supabase flashes error
+        return redirect(url_for('clean_data')) # Go back if read fails
+
+    # Validate column exists
+    if col not in df.columns:
+        flash(f"Column '{col}' not found in the current dataset.", "warning")
+        return redirect(url_for('clean_data'))
 
     try:
-        start_time = time.time(); unique_vals = df[col].dropna().astype(str).unique()
-        if len(unique_vals) < 2: flash(f"Not enough unique values in '{col}'.", "info"); session.pop('fuzzy_results', None); return redirect(url_for('clean_data'))
+        start_time = time.time()
+        # Ensure column is treated as string and get unique non-null values
+        unique_vals = df[col].dropna().astype(str).unique()
 
-        flash(f"Analyzing '{col}' (Similarity >= {threshold}%)...", "info"); groups, processed = [], set(); unique_list = sorted(list(unique_vals)); n = len(unique_list)
-        for i in range(n):
-            if i in processed: continue; current = [unique_list[i]]; processed.add(i)
-            for j in range(i + 1, n):
-                if j in processed: continue
-                if fuzz.ratio(unique_list[i], unique_list[j]) >= threshold: current.append(unique_list[j]); processed.add(j)
-            if len(current) > 1: groups.append(sorted(current))
+        if len(unique_vals) < 2:
+            flash(f"Not enough unique text values in column '{col}' to perform fuzzy matching.", "info")
+            session.pop('fuzzy_results', None) # Clear any previous results
+            return redirect(url_for('clean_data'))
 
+        flash(f"Analyzing column '{col}' for values with similarity >= {threshold}% (this may take time for many unique values)...", "info")
+
+        groups = []
+        processed_indices = set() # Use indices for faster lookup
+        unique_vals_list = sorted(list(unique_vals)) # Sort for minor efficiency gain & consistent order
+        n_unique = len(unique_vals_list)
+
+        # O(n^2) comparison - performance bottleneck for high cardinality
+        for i in range(n_unique):
+            if i in processed_indices:
+                continue
+
+            # ***** CORRECTED INITIALIZATION *****
+            # Initialize current_group for *this specific starting value*
+            current_group = [unique_vals_list[i]]
+            processed_indices.add(i)
+            # ************************************
+
+            for j in range(i + 1, n_unique):
+                if j in processed_indices:
+                    continue
+
+                # Ensure comparison is between strings
+                val_i = str(unique_vals_list[i])
+                val_j = str(unique_vals_list[j])
+
+                # Calculate similarity ratio
+                ratio = fuzz.ratio(val_i, val_j)
+
+                if ratio >= threshold:
+                    # Append the *original* value from the list
+                    current_group.append(unique_vals_list[j])
+                    processed_indices.add(j)
+
+            # Only store groups with more than one member (i.e., matches found)
+            if len(current_group) > 1:
+                # Sort group members alphabetically for consistent display
+                groups.append(sorted(current_group))
+
+        # Process results
         duration = time.time() - start_time
-        if groups: session['fuzzy_results'] = {'column': col, 'threshold': threshold, 'groups': groups}; flash(f"Fuzzy analysis ({duration:.2f}s): Found {len(groups)} groups.", "success")
-        else: session.pop('fuzzy_results', None); flash(f"Fuzzy analysis ({duration:.2f}s): No groups found.", "info")
-    except Exception as e: flash(f"Error during fuzzy analysis: {e}", "danger"); session.pop('fuzzy_results', None); traceback.print_exc()
-    return redirect(url_for('clean_data'))
+        if groups:
+            session['fuzzy_results'] = {'column': col, 'threshold': threshold, 'groups': groups}
+            flash(f"Fuzzy analysis completed ({duration:.2f}s). Found {len(groups)} potential groups. Review below.", "success")
+        else:
+            session.pop('fuzzy_results', None) # Clear if no groups found
+            flash(f"Fuzzy analysis completed ({duration:.2f}s). No groups found meeting the {threshold}% similarity threshold.", "info")
+
+    except Exception as e:
+        flash(f"An error occurred during fuzzy analysis: {type(e).__name__} - {e}", "danger")
+        session.pop('fuzzy_results', None) # Clear results on error
+        traceback.print_exc() # Log detailed error
+
+    return redirect(url_for('clean_data')) # Redirect back to show results/messages
 
 
 # --- Route to Display Data and Cleaning Options ---
@@ -1296,6 +1791,226 @@ def hard_auto_column_clean():
         else: flash("Hard Column Auto-Clean failed to save.", "danger")
         return redirect(url_for('clean_data'))
     except Exception as e: print(f"Error Hard Column Auto-Clean: {e}"); traceback.print_exc(); flash(f"Error during Hard Column Auto-Clean: {type(e).__name__}.", "danger"); return redirect(url_for('clean_data'))
+
+
+# Add this updated route function to your app.py, replacing the previous /analysis route
+
+@app.route('/analysis', methods=['GET']) # Only handles GET requests
+def analyze_data():
+    """Displays the analysis page and handles requests for specific analyses."""
+    object_path = session.get('current_file_path')
+    original_filename = session.get('original_filename', 'Pasted Data')
+
+    # --- Basic Checks ---
+    if not object_path:
+        flash("No data loaded. Please paste data on the home page first.", "warning")
+        return redirect(url_for('index'))
+    if not supabase:
+        flash("Cloud storage client not available. Cannot perform analysis.", "danger")
+        return redirect(url_for('clean_data'))
+
+    # --- Load Data ---
+    df = read_data_from_supabase(object_path)
+    if df is None:
+        # read_data_from_supabase should have flashed an error
+        return redirect(url_for('clean_data')) # Redirect as data is inaccessible
+
+    # --- Get Column Info for UI ---
+    try:
+        column_types = get_column_types(df)
+        all_columns = df.columns.tolist()
+        current_shape = df.shape
+    except Exception as e:
+        flash(f"Error getting column information: {e}", "danger")
+        return redirect(url_for('clean_data'))
+
+    # --- Initialize variables for analysis results ---
+    # Use more specific names and include slots for new results
+    analysis_results = {
+        "action_performed": None,
+        "error": None,
+        # Single Variable Results
+        "single_col_name": None,
+        "single_num_stats": None,          # Dict
+        "single_num_hist_div": None,       # Plotly Div HTML
+        "single_num_box_div": None,        # Plotly Div HTML
+        "single_cat_table_html": None,     # HTML Table
+        "single_cat_bar_div": None,        # Plotly Div HTML
+        "single_dt_stats": None,           # Dict
+        "single_dt_plot_div": None,        # Plotly Div HTML
+        # Bivariate Results
+        "scatter_col_x": None,
+        "scatter_col_y": None,
+        "scatter_results": None,           # Dict (corr_p, corr_s, p_val_p)
+        "scatter_plot_div": None,          # Plotly Div HTML
+        "num_cat_num_col": None,
+        "num_cat_cat_col": None,
+        "num_cat_box_div": None,           # Plotly Div HTML
+        "num_cat_violin_div": None,      # Plotly Div HTML
+        "cat_cat_col1": None,
+        "cat_cat_col2": None,
+        "crosstab_html": None,             # HTML Table
+        "crosstab_heatmap_div": None,    # Plotly Div HTML
+        "chi2_test_results": None,         # Dict
+        # Overview Results
+        "correlation_method": None,
+        "correlation_heatmap_div": None, # Plotly Div HTML
+        # GroupBy Results
+        "groupby_table_html": None,        # HTML Table
+        # Hypothesis Test Results
+        "ttest_num_col": None,
+        "ttest_cat_col": None,
+        "ttest_results": None,             # Dict
+        "anova_num_col": None,
+        "anova_cat_col": None,
+        "anova_results": None              # Dict
+    }
+
+    # --- Check for requested analysis action ---
+    action = request.args.get('action')
+    analysis_results["action_performed"] = action
+
+    if action:
+        print(f"Analysis action requested: {action} with args: {request.args}")
+        try:
+            # --- Single Variable Analysis ---
+            if action == 'single_variable':
+                col_name = request.args.get('single_column')
+                analysis_results["single_col_name"] = col_name
+                if col_name and col_name in all_columns:
+                    if col_name in column_types['numeric']:
+                        stats_dict, hist_div, box_div = analyze_numeric_column(df, col_name)
+                        analysis_results["single_num_stats"] = stats_dict
+                        analysis_results["single_num_hist_div"] = hist_div
+                        analysis_results["single_num_box_div"] = box_div
+                    elif col_name in column_types['categorical']:
+                         table_html, bar_div = analyze_categorical_column(df, col_name)
+                         analysis_results["single_cat_table_html"] = table_html
+                         analysis_results["single_cat_bar_div"] = bar_div
+                    elif col_name in column_types['datetime']:
+                        stats_dict, plot_div = analyze_datetime_column(df, col_name)
+                        analysis_results["single_dt_stats"] = stats_dict
+                        analysis_results["single_dt_plot_div"] = plot_div
+                    else:
+                        flash(f"Analysis for column type of '{col_name}' not implemented.", "info")
+                elif col_name:
+                     flash(f"Selected column '{col_name}' not found in the dataset.", "warning")
+                else:
+                    flash("Please select a column for single variable analysis.", "warning")
+
+            # --- Bivariate Analysis ---
+            elif action == 'numeric_vs_numeric':
+                col_x = request.args.get('scatter_x')
+                col_y = request.args.get('scatter_y')
+                analysis_results["scatter_col_x"] = col_x
+                analysis_results["scatter_col_y"] = col_y
+                if col_x and col_y and col_x in column_types['numeric'] and col_y in column_types['numeric']:
+                    if col_x == col_y: flash("Please select two different numeric columns.", "warning")
+                    else:
+                        results_dict, plot_div = analyze_numeric_vs_numeric(df, col_x, col_y)
+                        analysis_results["scatter_results"] = results_dict
+                        analysis_results["scatter_plot_div"] = plot_div
+                elif col_x or col_y : # Only flash if one or both were selected but invalid
+                    flash("Please select two valid numeric columns.", "warning")
+
+            elif action == 'numeric_vs_categorical':
+                num_col = request.args.get('num_cat_numeric')
+                cat_col = request.args.get('num_cat_categorical')
+                analysis_results["num_cat_num_col"] = num_col
+                analysis_results["num_cat_cat_col"] = cat_col
+                if num_col and cat_col and num_col in column_types['numeric'] and cat_col in all_columns:
+                     # Helper checks cardinality
+                     box_div, violin_div = analyze_numeric_vs_categorical(df, num_col, cat_col)
+                     analysis_results["num_cat_box_div"] = box_div
+                     analysis_results["num_cat_violin_div"] = violin_div
+                elif num_col or cat_col:
+                     flash("Please select a valid numeric and a categorical column.", "warning")
+
+            elif action == 'categorical_vs_categorical':
+                cat_col1 = request.args.get('cat_cat_1')
+                cat_col2 = request.args.get('cat_cat_2')
+                analysis_results["cat_cat_col1"] = cat_col1
+                analysis_results["cat_cat_col2"] = cat_col2
+                if cat_col1 and cat_col2 and cat_col1 in all_columns and cat_col2 in all_columns:
+                    if cat_col1 == cat_col2: flash("Please select two different categorical columns.", "warning")
+                    else:
+                        crosstab_html, heatmap_div, test_results = analyze_categorical_vs_categorical(df, cat_col1, cat_col2)
+                        analysis_results["crosstab_html"] = crosstab_html
+                        analysis_results["crosstab_heatmap_div"] = heatmap_div
+                        analysis_results["chi2_test_results"] = test_results
+                elif cat_col1 or cat_col2:
+                     flash("Please select two valid categorical columns.", "warning")
+
+            # --- Overview Analysis ---
+            elif action == 'correlation_heatmap':
+                 corr_method = request.args.get('corr_method', 'pearson') # Default to pearson
+                 analysis_results["correlation_method"] = corr_method
+                 heatmap_div = generate_correlation_heatmap(df, method=corr_method)
+                 analysis_results["correlation_heatmap_div"] = heatmap_div
+
+            # --- GroupBy Analysis ---
+            elif action == 'grouped_summary':
+                 group_cols = request.args.getlist('groupby_cols')
+                 val_cols = request.args.getlist('groupby_vals')
+                 agg_funcs = request.args.getlist('groupby_funcs')
+                 summary_html = generate_grouped_summary(df, group_cols, val_cols, agg_funcs)
+                 # Store inputs for potential display/confirmation in template if needed
+                 # analysis_results["groupby_cols"] = group_cols
+                 # analysis_results["groupby_vals"] = val_cols
+                 # analysis_results["groupby_funcs"] = agg_funcs
+                 analysis_results["groupby_table_html"] = summary_html
+
+            # --- Hypothesis Testing ---
+            elif action == 'ttest':
+                 num_col = request.args.get('ttest_numeric')
+                 cat_col = request.args.get('ttest_cat_binary')
+                 analysis_results["ttest_num_col"] = num_col
+                 analysis_results["ttest_cat_col"] = cat_col
+                 if num_col and cat_col and num_col in column_types['numeric'] and cat_col in all_columns:
+                     # Helper function performs validation on binary nature
+                     test_results = perform_ttest_ind(df, num_col, cat_col)
+                     analysis_results["ttest_results"] = test_results
+                 elif num_col or cat_col:
+                     flash("Please select a numeric and a binary categorical column for T-test.", "warning")
+
+            elif action == 'anova':
+                 num_col = request.args.get('anova_numeric')
+                 cat_col = request.args.get('anova_cat_multi')
+                 analysis_results["anova_num_col"] = num_col
+                 analysis_results["anova_cat_col"] = cat_col
+                 if num_col and cat_col and num_col in column_types['numeric'] and cat_col in all_columns:
+                      # Helper function performs validation
+                     test_results = perform_anova(df, num_col, cat_col)
+                     analysis_results["anova_results"] = test_results
+                 elif num_col or cat_col:
+                     flash("Please select a numeric and a categorical column (>=2 groups) for ANOVA.", "warning")
+
+            else:
+                 flash(f"Unknown analysis action requested: {action}", "warning")
+
+        except Exception as e:
+            error_msg = f"Error performing analysis action '{action}': {type(e).__name__} - {e}"
+            print(error_msg)
+            traceback.print_exc()
+            flash(error_msg, "danger")
+            analysis_results["error"] = error_msg # Store error for display
+
+    # --- Render the analysis page template ---
+    # Pass common info and unpack the results dictionary
+    return render_template(
+        'analysis.html',
+        filename=original_filename,
+        current_shape=current_shape,
+        all_columns=all_columns,
+        numeric_cols=column_types['numeric'],
+        categorical_cols=column_types['categorical'],
+        low_cardinality_cols=column_types['low_cardinality_categorical'],
+        datetime_cols=column_types['datetime'],
+        # Unpack all analysis results (plot divs, tables, stats dicts, etc.)
+        **analysis_results
+    )
+
+# --- END of /analysis route ---
 
 
 # --- Visualization Route ---
