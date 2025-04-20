@@ -263,3 +263,166 @@ select[multiple] {
     h2.h4 { font-size: 1.2rem; } /* Adjust heading size */
     .profile-section .profile-stats .col-lg-4 { margin-bottom: 0.5rem; } /* Add space between stat columns on smaller screens */
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.me-3 {
+    color: #000 !important;
+}
+.mb-3 {
+    color: #000;
+}
+
+.btn-toolbar {
+    background: #4820A6;
+    background: linear-gradient(90deg,rgba(72, 32, 166, 1) 0%, rgba(47, 6, 122, 1) 75%, rgba(48, 10, 131, 1) 100%);
+    border-radius: 1rem;
+    padding: 1rem;
+    width: 100%;
+}
+button {
+    border-radius: 0.5rem !important;
+    border-width: 2px !important;
+    font-family: "Inter", sans-serif;
+}
+.btn {
+    border-radius: 0.5rem !important;
+    border-width: 2px !important;
+    font-family: "Inter", sans-serif;
+}
+.btn-info {
+    background-color: #4820A6 !important;
+    color: #FFFFFF;
+    border-color: #FFFFFF !important;
+}
+.btn-info:hover {
+    background-color: #FFFFFF !important;
+}
+.btn-success {
+    background-color: #4820A6 !important;
+    color: #FFFFFF;
+    border-color: #D1E7DD !important;
+}
+.btn-success:hover {
+    background-color: #D1E7DD !important;
+    color: #000000;
+}
+.btn-danger {
+    background-color: #4820A6 !important;
+    color: #FFFFFF;
+    border-color: #F8D7DA !important;
+}
+.btn-danger:hover {
+    background-color: #F8D7DA !important;
+    color: #000000;
+}
+.btn-warning {
+    background-color: #4820A6 !important;
+    color: #FFFFFF;
+    border-color: #FFF3CD !important;
+}
+.btn-warning:hover {
+    background-color: #FFF3CD !important;
+    color: #000000;
+}
+
+#cleaningAccordion {
+    padding-top: 4px;
+}
+.accordion-item {
+    border-radius: 1rem !important;
+    border: none !important;
+}
+.accordion-button:not(.collapsed) {
+    background-color: #4820A6;
+    color: #FFF;
+}
+
+.form-select {
+    border: #F1F1F1 3px solid;
+    border-radius: 0.5rem;
+}
+
+.table-preview-container {
+    background-color: #4820A6 !important;
+    border-radius: 1rem !important;
+}
+.table thead th {
+    background-color: #4820A6;
+    color: #FFF;
+    text-align: center;
+}
+tbody, td, tfoot, th, thead, tr {
+    border: none;
+}
+
+
+.alert-secondary {
+    border-radius: 1rem;
+    padding: 2rem;
+    background-color: #FFFFFF !important;
+    font-family: "Inter", sans-serif;
+}
+.alert-secondary hr {
+    background-color: #4820A6;
+}
+.alert .list-group-item strong {
+    color: #4820A6 !important;
+}
+.alert p small em {
+    color: #2D58FF !important;
+    font-size: medium !important;
+}
+
+.profile-section {
+    border-radius: 1rem;
+    padding: 2rem;
+}
+.profile-section .accordion-flush .accordion-button {
+    background-color: #FFFFFF !important;
+    border: #F1F1F1 3px solid !important;
+    border-radius: 0.5rem !important;
+}
+.profile-section .accordion-button strong {
+    color: #4820A6;
+    font-weight: bold;
+}
+.profile-section .accordion-button small {
+    color: #636A87 !important;
+}
+h6 {
+    color: #4820A6 !important;
+}
+
+
+
+.analysis-section {
+    background-color: #FFFFFF !important;
+    border-radius: 1rem !important;
+}
+.analysis-section h4 {
+    border-bottom: 3px solid #F1F1F1 !important;
+}
+.analysis-subsection {
+    background-color: #FFFFFF !important;
+    border-radius: 1rem !important;
+    border: 3px solid #F1F1F1 !important;
+}
+select[multiple] {
+    border-radius: 0.5rem !important;
+}
