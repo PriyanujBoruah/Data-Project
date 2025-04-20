@@ -1150,7 +1150,7 @@ def clean_data():
         actual_rows_shown = min(preview_rows, len(df))
         # Use pandas Styler for better HTML rendering options if needed later
         df_preview_html = df.head(preview_rows).to_html(
-            classes='table table-striped table-sm',
+            classes='table table-hover table-sm',
             border=0, index=False,
             na_rep='<span class="text-muted fst-italic">NaN</span>' # Render NaN nicely
         )
