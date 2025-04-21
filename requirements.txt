@@ -14,3 +14,4 @@ supabase==2.15.0 # Use >=2.0 as we adapted for its API
 python-dotenv==0.19.2 # For loading .env locally (Render ignores it)
 Werkzeug==2.3.8
 requests==2.32.3 # Often a dependency, good to specify
+statsmodels==0.14.1
