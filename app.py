@@ -1154,7 +1154,7 @@ def clean_data():
             border=0, index=False,
             na_rep='<span class="text-muted fst-italic">NaN</span>' # Render NaN nicely
         )
-        preview_text = f"Data Preview ({actual_rows_shown} of {len(df)} Rows):"
+        preview_text = f"Data Preview ({actual_rows_shown} of {len(df)} Rows)"
 
         exploration_results = session.get('exploration_results')
         profile_results = session.get('profile_results')
